@@ -70,7 +70,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 | ID | Task | Depends on | Parallel-safe with | Status | Commit |
 |---|---|---|---|---|---|
 | T01 | Scaffold Go module, core contracts, backend registry, Makefile | — | — | done | fd43566 |
-| T02 | Mock backend | T01 | T05, T08 | in-progress (T02-mock) | — |
+| T02 | Mock backend | T01 | T05, T08 | done |  |
 | T03 | `check` CLI + dispatcher | T01 | T05, T08 | pending | — |
 | T04 | Response cache | T03 | T05, T06, T08, T11 | pending | — |
 | T05 | Jev HTTP client | T01 | T02, T03, T04, T08 | pending | — |
@@ -153,9 +153,9 @@ self-test floor (architecture §5ter, §5.2).
 
 **Acceptance criteria**:
 
-- [ ] Table-driven test: ≥ 25 cases covering allow / ask / deny and the unmatched→ask
+- [x] Table-driven test: ≥ 25 cases covering allow / ask / deny and the unmatched→ask
       default; includes empty-input case asserting index alignment
-- [ ] `go test ./internal/backend/mock/...` passes; no network use anywhere in the
+- [x] `go test ./internal/backend/mock/...` passes; no network use anywhere in the
       package
 
 ## T03 — `check` CLI + dispatcher
