@@ -310,14 +310,14 @@ thresholds `tv1`), registered in the registry.
 
 **Acceptance criteria**:
 
-- [ ] Route unit tests: boundary table around both gates (0.84/0.85/0.86 hazard;
+- [x] Route unit tests: boundary table around both gates (0.84/0.85/0.86 hazard;
       2.9/3.0/3.1 severity; ask boundaries; multi-hazard max; allow path) — no network
-- [ ] Backend end-to-end test over httptest server: 3-command batch → 3 requests
+- [x] Backend end-to-end test over httptest server: 3-command batch → 3 requests
       (≤5 concurrency), index-aligned verdicts, category/reason content asserted,
       resolved model recorded on `Info` after run
-- [ ] Env-override test: `WISE_YOLO_JEV_THRESHOLDS` changes the route outcome on a
+- [x] Env-override test: `WISE_YOLO_JEV_THRESHOLDS` changes the route outcome on a
       pinned probability; unknown key errors
-- [ ] Battery texts in code are verbatim the architecture §5bis tables (reviewed by
+- [x] Battery texts in code are verbatim the architecture §5bis tables (reviewed by
       diff in this task)
 
 ## T07 — `doctor` CLI
