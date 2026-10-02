@@ -1,0 +1,1 @@
+{"ts":"2026-10-02T21:13:29Z","backend":"mock","backend_model":"mock-rules","policy_version":"mock-0","thresholds_version":"mock-0","sensitivity":0.9640718562874252,"specificity":0.4065934065934066,"precision":0.7488372093023256,"f1":0.8429319371727749,"fnr":0.03592814371257485,"fpr":0.5934065934065934,"accuracy3":0.46124031007751937,"lat_p50":0,"lat_p95":0,"corpus_size":258}

@@ -4,7 +4,7 @@
 // Subcommands:
 //
 //	check  — one classification run; input JSON on stdin, output contract on stdout
-//	eval   — corpus evaluation over a backend (task T09; not implemented yet)
+//	eval   — corpus evaluation, metrics, reports, history (architecture §7)
 //	doctor — backend health reporting, one JSON object per backend on stdout
 //
 // Commands travel on stdin, not argv, so arbitrary quoting and long batches
@@ -48,9 +48,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	case "doctor":
 		return runDoctor(args[1:], stdin, stdout, stderr)
 	case "eval":
-		fmt.Fprintf(stderr, "wiseyolo %s: not implemented yet\n\n", args[0])
-		usage(stderr)
-		return 1
+		return runEval(args[1:], stdin, stdout, stderr)
 	case "help", "--help", "-h":
 		usage(stdout)
 		return 0
@@ -67,13 +65,23 @@ func usage(w io.Writer) {
 
 subcommands:
   check   classify commands read from stdin (JSON: {"commands": [...]})
-  eval    run the labelled corpus against a backend (not implemented yet)
+  eval    run the labelled corpus against a backend, report metrics and gates
   doctor  verify backend credentials and reachability (health JSON on stdout)
 
 check flags:
   --backend <name>   judgment backend (default: WISE_YOLO_BACKEND or %[1]s)
   --cache            force the response cache on (not effective until T04)
   --no-cache         force the response cache off (not effective until T04)
+
+eval flags:
+  --backend <name>   judgment backend (default: WISE_YOLO_BACKEND or %[1]s)
+  --corpus <file>    evalset.json (default: data/evalset.json found upwards)
+  --reports <dir>    report and history directory (default: reports)
+  --gates <file>     apply regression gates from this file
+  --compare          versus the previous same-backend run; gates applied
+                     from <reports>/gates.json when the file exists
+  --sweep <variants> semicolon-separated WISE_YOLO_JEV_THRESHOLDS variants (jev only)
+  --bench-spawn      time empty-input spawns of this binary (mean, p95)
 
 doctor flags:
   --backend <name>   report only this backend (default: all registered backends)

@@ -41,6 +41,24 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// scrubKeys removes every Jev credential and backend-selection variable from
+// an environment copy, so contract tests do not depend on the developer's
+// key configuration.
+func scrubKeys(env []string) []string {
+	var out []string
+	for _, kv := range env {
+		switch {
+		case strings.HasPrefix(kv, "TYPESAFE_API_KEY="),
+			strings.HasPrefix(kv, "WISE_YOLO_JEV_API_KEY="),
+			strings.HasPrefix(kv, "WISE_YOLO_BACKEND="),
+			strings.HasPrefix(kv, "WISE_YOLO_JEV_THRESHOLDS="):
+		default:
+			out = append(out, kv)
+		}
+	}
+	return out
+}
+
 // contract is the parsed output contract of check (architecture §3).
 type contract struct {
 	Results []struct {
@@ -242,20 +260,21 @@ func TestCheckBinaryRouting(t *testing.T) {
 	if code != 1 || !strings.Contains(stderr, "usage") {
 		t.Fatalf("missing subcommand: exit=%d stderr=%q, want exit 1 with usage on stderr", code, stderr)
 	}
-	// Amendment (T07): doctor is implemented now; it still exits 1 across the
-	// inherited environment's default backend with no key configured, and it
-	// must not emit a check contract on stdout.
-	code, stdout, stderr := runBinary(t, checkBin, "", nil, "doctor")
+	// Amendment (T07): doctor is implemented now; with no Jev key visible it
+	// exits 1 across the default backend, and it must not emit a check
+	// contract on stdout. The key variables are scrubbed from the
+	// environment so the assertion does not depend on the developer's setup.
+	code, stdout, stderr := runBinary(t, checkBin, "", scrubKeys(os.Environ()), "doctor")
 	if code != 1 || !strings.Contains(stderr, "doctor") {
 		t.Fatalf("doctor: exit=%d stderr=%q, want exit 1 with a doctor diagnostic", code, stderr)
 	}
 	if strings.Contains(stdout, "\"meta\"") {
 		t.Errorf("doctor must not emit a check contract on stdout")
 	}
-	for _, sc := range []string{"eval"} {
+	for _, sc := range []string{"bogus-subcommand"} {
 		code, stdout, stderr := runBinary(t, checkBin, "", nil, sc)
-		if code != 1 || !strings.Contains(stderr, "not implemented yet") {
-			t.Fatalf("%s: exit=%d stderr=%q, want exit 1 with a not-implemented message", sc, code, stderr)
+		if code != 1 || !strings.Contains(stderr, "usage") {
+			t.Fatalf("%s: exit=%d stderr=%q, want exit 1 with a usage message", sc, code, stderr)
 		}
 		if strings.Contains(stdout, "\"meta\"") {
 			t.Errorf("%s must not emit a contract on stdout", sc)

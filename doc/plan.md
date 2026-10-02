@@ -77,7 +77,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 | T06 | Jev backend (battery + mapping) | T05 | T04, T08, T11 | done (T06-jev-backend) | 08fbaa9 |
 | T07 | `doctor` CLI | T06 | T09, T11 | done (T07-doctor) | 8004449 |
 | T08 | Eval corpus + validation | T01 | T02, T03, T04, T05, T06 | done (T08-corpus) | a41151a |
-| T09 | Eval harness, metrics, reports, history | T03, T08, T02 | T07, T11 | in-progress (T09-eval) | — |
+| T09 | Eval harness, metrics, reports, history | T03, T08, T02 | T07, T11 | done (T09-eval) | — |
 | T10 | Live calibration + regression gates **(needs key)** | T09, T07 | — | pending | — |
 | T11 | OpenCode V2 plugin | T03 | T04, T05, T06, T07, T08, T09 | pending | — |
 | T12 | Final QA, README, end-to-end, tag | T07, T09, T10, T11 | — | pending | — |
@@ -422,13 +422,13 @@ corpus). ~200 commands.
 
 **Acceptance criteria**:
 
-- [ ] Metric unit tests over hand-computed confusion matrices (incl. the FNR-is-
+- [x] Metric unit tests over hand-computed confusion matrices (incl. the FNR-is-
       dangerous case: truth deny + verdict allow must credit FNR)
-- [ ] `make eval-mock` runs end-to-end: report written, history line appended,
+- [x] `make eval-mock` runs end-to-end: report written, history line appended,
       second run appends a second line (test asserts both), compare prints deltas
-- [ ] `--gate` behaviour contract-tested both ways (passing file / violating synthetic
+- [x] `--gate` behaviour contract-tested both ways (passing file / violating synthetic
       file) without network
-- [ ] Determinism: running eval twice with the mock backend produces identical metric
+- [x] Determinism: running eval twice with the mock backend produces identical metric
       values in history (latency fields excepted)
 
 ## T10 — Live calibration + regression gates **(needs Jev key)**
