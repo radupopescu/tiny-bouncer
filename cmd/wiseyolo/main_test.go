@@ -242,7 +242,17 @@ func TestCheckBinaryRouting(t *testing.T) {
 	if code != 1 || !strings.Contains(stderr, "usage") {
 		t.Fatalf("missing subcommand: exit=%d stderr=%q, want exit 1 with usage on stderr", code, stderr)
 	}
-	for _, sc := range []string{"eval", "doctor"} {
+	// Amendment (T07): doctor is implemented now; it still exits 1 across the
+	// inherited environment's default backend with no key configured, and it
+	// must not emit a check contract on stdout.
+	code, stdout, stderr := runBinary(t, checkBin, "", nil, "doctor")
+	if code != 1 || !strings.Contains(stderr, "doctor") {
+		t.Fatalf("doctor: exit=%d stderr=%q, want exit 1 with a doctor diagnostic", code, stderr)
+	}
+	if strings.Contains(stdout, "\"meta\"") {
+		t.Errorf("doctor must not emit a check contract on stdout")
+	}
+	for _, sc := range []string{"eval"} {
 		code, stdout, stderr := runBinary(t, checkBin, "", nil, sc)
 		if code != 1 || !strings.Contains(stderr, "not implemented yet") {
 			t.Fatalf("%s: exit=%d stderr=%q, want exit 1 with a not-implemented message", sc, code, stderr)

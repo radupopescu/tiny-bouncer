@@ -1,0 +1,197 @@
+package main_test
+
+// Subprocess contract tests for the doctor subcommand (architecture §3;
+// plan T07 criteria). The binary is built once by TestMain in main_test.go.
+// All network coverage is via httptest servers only (plan §2: tests never
+// touch the network).
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+// doctorHealth is the per-backend health JSON object on stdout (T07).
+type doctorHealth struct {
+	Backend           string `json:"backend"`
+	OK                bool   `json:"ok"`
+	Model             string `json:"model"`
+	PolicyVersion     string `json:"policy_version"`
+	ThresholdsVersion string `json:"thresholds_version"`
+	Error             string `json:"error"`
+}
+
+// parseDoctorRows splits doctor's stdout (one JSON object per backend) and
+// decodes each line, failing on anything malformed.
+func parseDoctorRows(t *testing.T, stdout string) []doctorHealth {
+	t.Helper()
+	var rows []doctorHealth
+	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		if line == "" {
+			continue
+		}
+		var h doctorHealth
+		if err := json.Unmarshal([]byte(line), &h); err != nil {
+			t.Fatalf("stdout line is not health JSON: %v\nline: %s", err, line)
+		}
+		rows = append(rows, h)
+	}
+	return rows
+}
+
+// jevEnv builds the environment for a doctor run against a test endpoint.
+func jevEnv(baseURL string) []string {
+	return []string{"WISE_YOLO_JEV_BASE_URL=" + baseURL, "WISE_YOLO_JEV_API_KEY=test-key"}
+}
+
+func TestDoctorHealthyJev(t *testing.T) {
+	// /v1/models answers 200; no classify traffic is expected.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/models" {
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	code, stdout, _ := runBinary(t, checkBin, "", jevEnv(srv.URL), "doctor")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%q", code, stdout)
+	}
+	rows := parseDoctorRows(t, stdout)
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want 2 (jev, mock)", len(rows))
+	}
+	// Stable sorted order: jev first, mock second.
+	if rows[0].Backend != "jev" || rows[1].Backend != "mock" {
+		t.Fatalf("order = %v, %v; want jev then mock", rows[0].Backend, rows[1].Backend)
+	}
+	j := rows[0]
+	if !j.OK || j.Error != "" {
+		t.Errorf("jev row = %+v; want ok with empty error", j)
+	}
+	if j.Model == "" || j.PolicyVersion != "jev-policy-1.0" || j.ThresholdsVersion != "tv1" {
+		t.Errorf("jev version facts wrong: %+v", j)
+	}
+	m := rows[1]
+	if !m.OK || m.Model != "mock-rules" || m.PolicyVersion != "mock-0" || m.ThresholdsVersion != "mock-0" {
+		t.Errorf("mock row = %+v; want always-ok mock facts", m)
+	}
+}
+
+func TestDoctor401ExitsOne(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	code, stdout, _ := runBinary(t, checkBin, "", jevEnv(srv.URL), "doctor")
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1 on a 401 health check", code)
+	}
+	rows := parseDoctorRows(t, stdout)
+	var j *doctorHealth
+	for i := range rows {
+		if rows[i].Backend == "jev" {
+			j = &rows[i]
+		}
+	}
+	if j == nil {
+		t.Fatalf("no jev row in stdout: %s", stdout)
+	}
+	if j.OK || j.Error == "" {
+		t.Errorf("jev row = %+v; want ok:false with a populated error", j)
+	}
+	// The mock backend is unaffected by jev's credentials.
+	if rows[len(rows)-1].Backend != "mock" || !rows[len(rows)-1].OK {
+		t.Errorf("mock row must remain ok: %+v", rows[len(rows)-1])
+	}
+}
+
+func TestDoctorMockAlwaysOK(t *testing.T) {
+	code, stdout, _ := runBinary(t, checkBin, "", nil, "doctor", "--backend", "mock")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%q", code, stdout)
+	}
+	rows := parseDoctorRows(t, stdout)
+	if len(rows) != 1 || rows[0].Backend != "mock" || !rows[0].OK {
+		t.Fatalf("rows = %+v; want exactly one ok mock row", rows)
+	}
+}
+
+func TestDoctorUnknownBackendExitsOne(t *testing.T) {
+	code, stdout, stderr := runBinary(t, checkBin, "", nil, "doctor", "--backend", "nope")
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1 for an unknown backend", code)
+	}
+	if strings.Contains(stdout, `"backend"`) {
+		t.Errorf("no health JSON may be emitted for an unknown backend; stdout=%q", stdout)
+	}
+	if !strings.Contains(stderr, "unknown backend") || !strings.Contains(stderr, "nope") {
+		t.Errorf("stderr must name the unknown backend; stderr=%q", stderr)
+	}
+}
+
+func TestDoctorMissingKeyExitsOneWithoutNetwork(t *testing.T) {
+	// Start a server, then close it: any HTTP attempt against the closed
+	// endpoint would exercise the network path and fail with a connection
+	// error. The missing-key path must fail before any such attempt.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	url := srv.URL
+	srv.Close()
+
+	env := []string{"WISE_YOLO_JEV_BASE_URL=" + url}
+	code, stdout, _ := runBinary(t, checkBin, "", env, "doctor")
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1 with no key configured", code)
+	}
+	rows := parseDoctorRows(t, stdout)
+	var j *doctorHealth
+	for i := range rows {
+		if rows[i].Backend == "jev" {
+			j = &rows[i]
+		}
+	}
+	if j == nil {
+		t.Fatalf("no jev row in stdout: %s", stdout)
+	}
+	if j.OK || !strings.Contains(j.Error, "no API key") {
+		t.Errorf("jev row = %+v; want ok:false with an informative missing-key error", j)
+	}
+	if strings.Contains(strings.ToLower(j.Error), "unreachable") ||
+		strings.Contains(strings.ToLower(j.Error), "connect") {
+		t.Errorf("error %q suggests a network attempt was made against a closed endpoint", j.Error)
+	}
+}
+
+func TestDoctorUnreachableEndpointExitsOne(t *testing.T) {
+	// With a key present but a dead endpoint, doctor degrades to exit 1 with
+	// an informative reachability error, never a panic.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	url := srv.URL
+	srv.Close()
+
+	code, stdout, _ := runBinary(t, checkBin, "", jevEnv(url), "doctor")
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1 for an unreachable endpoint", code)
+	}
+	rows := parseDoctorRows(t, stdout)
+	var j *doctorHealth
+	for i := range rows {
+		if rows[i].Backend == "jev" {
+			j = &rows[i]
+		}
+	}
+	if j == nil {
+		t.Fatalf("no jev row in stdout: %s", stdout)
+	}
+	if j.OK {
+		t.Errorf("jev must not report ok against a closed endpoint")
+	}
+	if j.Error == "" {
+		t.Errorf("reachability error must be populated; row = %+v", j)
+	}
+}

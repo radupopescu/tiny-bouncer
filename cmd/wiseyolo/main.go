@@ -5,7 +5,7 @@
 //
 //	check  — one classification run; input JSON on stdin, output contract on stdout
 //	eval   — corpus evaluation over a backend (task T09; not implemented yet)
-//	doctor — backend health reporting (task T07; not implemented yet)
+//	doctor — backend health reporting, one JSON object per backend on stdout
 //
 // Commands travel on stdin, not argv, so arbitrary quoting and long batches
 // are safe. Exit codes: 0 success (including degraded verdicts — the JSON is
@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"wiseyolo/internal/backend"
+	_ "wiseyolo/internal/backend/jev"  // register the live backend (T07: both backends built in)
 	_ "wiseyolo/internal/backend/mock" // register the offline backend
 	"wiseyolo/internal/dispatch"
 )
@@ -44,7 +45,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "check":
 		return runCheck(args[1:], stdin, stdout, stderr)
-	case "eval", "doctor":
+	case "doctor":
+		return runDoctor(args[1:], stdin, stdout, stderr)
+	case "eval":
 		fmt.Fprintf(stderr, "wiseyolo %s: not implemented yet\n\n", args[0])
 		usage(stderr)
 		return 1
@@ -65,12 +68,16 @@ func usage(w io.Writer) {
 subcommands:
   check   classify commands read from stdin (JSON: {"commands": [...]})
   eval    run the labelled corpus against a backend (not implemented yet)
-  doctor  verify backend credentials and reachability (not implemented yet)
+  doctor  verify backend credentials and reachability (health JSON on stdout)
 
 check flags:
   --backend <name>   judgment backend (default: WISE_YOLO_BACKEND or %[1]s)
   --cache            force the response cache on (not effective until T04)
   --no-cache         force the response cache off (not effective until T04)
+
+doctor flags:
+  --backend <name>   report only this backend (default: all registered backends)
+  --json             ignored: the output is always JSON (plugin contract)
 `, defaultBackend)
 }
 
