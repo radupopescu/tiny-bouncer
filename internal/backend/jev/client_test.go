@@ -407,6 +407,12 @@ func TestEnvPrecedence(t *testing.T) {
 		{name: "typesafe key fallback", env: map[string]string{"TYPESAFE_API_KEY": "a"}, wantBase: DefaultBaseURL},
 		{name: "no key", env: map[string]string{}, wantErr: true},
 	}
+	// The process environment may carry a live credential (a developer or
+	// CI machine with TYPESAFE_API_KEY set); the no-key case requires the
+	// candidates to be genuinely absent, so clear them explicitly. Empty
+	// counts as unconfigured.
+	t.Setenv("WISE_YOLO_JEV_API_KEY", "")
+	t.Setenv("TYPESAFE_API_KEY", "")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for k, v := range tt.env {

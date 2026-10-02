@@ -458,6 +458,10 @@ func TestThresholdOverrideThroughFactory(t *testing.T) {
 // TestFactoryConfigErrors: missing key, unknown threshold key, malformed
 // float, out-of-range gate — all typed config errors.
 func TestFactoryConfigErrors(t *testing.T) {
+	// Clear ambient credentials so the missing-key case stays meaningful on
+	// machines (or CI jobs) with a live Typesafe key in the environment.
+	t.Setenv("TYPESAFE_API_KEY", "")
+	t.Setenv("WISE_YOLO_JEV_API_KEY", "")
 	srv, _, _, _ := batteryServer(t, nil)
 	base := map[string]string{"WISE_YOLO_JEV_BASE_URL": srv.URL}
 	tests := []struct {
