@@ -30,6 +30,11 @@ import (
 type Backend interface {
 	// Name is the stable id used in reports, logs, and cache keys.
 	Name() string
+	// Info returns the identity and version facts recorded in the check
+	// output contract's meta object (architecture §3). Amendment (T03): the
+	// contract requires backend_model, policy_version and thresholds_version
+	// facts from the selected backend, so Info is part of the interface.
+	Info() Info
 	// Classify judges a batch of commands in one call.
 	Classify(ctx context.Context, cmds []core.Command) ([]core.Verdict, error)
 	// HealthCheck verifies credentials and reachability (feeds doctor).

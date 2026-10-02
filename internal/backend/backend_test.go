@@ -1,6 +1,23 @@
 package backend
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"wiseyolo/internal/core"
+)
+
+// stub satisfies the full Backend interface; keeping it here forces a
+// compile-time check whenever the interface changes (task T03 amendment:
+// Info is part of the interface).
+type stub struct{}
+
+func (stub) Name() string                                                     { return "stub" }
+func (stub) Info() Info                                                       { return Info{Name: "stub"} }
+func (stub) HealthCheck(context.Context) error                                { return nil }
+func (stub) Classify(context.Context, []core.Command) ([]core.Verdict, error) { return nil, nil }
+
+var _ Backend = stub{}
 
 func TestRegistry(t *testing.T) {
 	f1 := func(Config) (Backend, error) { return nil, nil }

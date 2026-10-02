@@ -71,7 +71,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 |---|---|---|---|---|---|
 | T01 | Scaffold Go module, core contracts, backend registry, Makefile | — | — | done | 1606c88 |
 | T02 | Mock backend | T01 | T05, T08 | done | 74eaca7 |
-| T03 | `check` CLI + dispatcher | T01 | T05, T08 | in-progress (session T03-check-cli) | — |
+| T03 | `check` CLI + dispatcher | T01 | T05, T08 | done | 07a9bdc |
 | T04 | Response cache | T03 | T05, T06, T08, T11 | pending | — |
 | T05 | Jev HTTP client | T01 | T02, T03, T04, T08 | pending | — |
 | T06 | Jev backend (battery + mapping) | T05 | T04, T08, T11 | pending | — |
@@ -191,16 +191,16 @@ self-test floor (architecture §5ter, §5.2).
 
 **Acceptance criteria**:
 
-- [ ] Contract tests run the **built binary** as a subprocess over `testdata/` fixtures:
+- [x] Contract tests run the **built binary** as a subprocess over `testdata/` fixtures:
       happy path; empty array; oversized input (exit 1); unknown backend (exit 1);
       malformed stdin (exit 1); backend `Classify` error → unjudged entries ≡ `ask`
       with failure reason (exit 0)
-- [ ] `wiseyolo check` with `--backend mock` on
+- [x] `wiseyolo check` with `--backend mock` on
       `{"commands":["git status","rm -rf /"]}` returns aggregate `deny` with two
       index-aligned results (verified in the contract test)
-- [ ] `meta.backend_model` / `policy_version` / `thresholds_version` equal the
+- [x] `meta.backend_model` / `policy_version` / `thresholds_version` equal the
       selected backend's `Info()` values (mock proven in tests)
-- [ ] `go test ./...` green; `gofmt -l .` empty; `go vet ./...` clean
+- [x] `go test ./...` green; `gofmt -l .` empty; `go vet ./...` clean
 
 ## T04 — Response cache
 
