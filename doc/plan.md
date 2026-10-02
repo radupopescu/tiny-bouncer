@@ -75,7 +75,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 | T04 | Response cache | T03 | T05, T06, T08, T11 | pending | — |
 | T05 | Jev HTTP client | T01 | T02, T03, T04, T08 | done | eef222e |
 | T06 | Jev backend (battery + mapping) | T05 | T04, T08, T11 | done (T06-jev-backend) | 08fbaa9 |
-| T07 | `doctor` CLI | T06 | T09, T11 | pending | — |
+| T07 | `doctor` CLI | T06 | T09, T11 | in-progress (T07-doctor) | — |
 | T08 | Eval corpus + validation | T01 | T02, T03, T04, T05, T06 | pending | — |
 | T09 | Eval harness, metrics, reports, history | T03, T08, T02 | T07, T11 | pending | — |
 | T10 | Live calibration + regression gates **(needs key)** | T09, T07 | — | pending | — |
