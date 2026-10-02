@@ -73,7 +73,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 | T02 | Mock backend | T01 | T05, T08 | done | 74eaca7 |
 | T03 | `check` CLI + dispatcher | T01 | T05, T08 | done | 07a9bdc |
 | T04 | Response cache | T03 | T05, T06, T08, T11 | pending | — |
-| T05 | Jev HTTP client | T01 | T02, T03, T04, T08 | in-progress (T05-jev-client) | — |
+| T05 | Jev HTTP client | T01 | T02, T03, T04, T08 | done | see implementation commit |
 | T06 | Jev backend (battery + mapping) | T05 | T04, T08, T11 | pending | — |
 | T07 | `doctor` CLI | T06 | T09, T11 | pending | — |
 | T08 | Eval corpus + validation | T01 | T02, T03, T04, T05, T06 | pending | — |
@@ -265,13 +265,13 @@ unaffected.
 
 **Acceptance criteria**:
 
-- [ ] Table tests: success round-trip (request body shape asserted exactly once
+- [x] Table tests: success round-trip (request body shape asserted exactly once
       against a captured example); 401 → no retry; 429 with `retry-after` → retried
       after the header delay; 429 then success → attempts recorded; 529 → retried;
       502 exhausting attempts → typed rate/overload error; 422 → body snippet in
       error, no retry; timeout aborts mid-request; malformed body → typed unusable error
-- [ ] Base-URL/key precedence unit tests (both env names, both override orders)
-- [ ] `go test ./internal/backend/jev/...` green with no external calls
+- [x] Base-URL/key precedence unit tests (both env names, both override orders)
+- [x] `go test ./internal/backend/jev/...` green with no external calls
 
 ## T06 — Jev backend (battery + mapping)
 
