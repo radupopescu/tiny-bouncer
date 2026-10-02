@@ -1,0 +1,24 @@
+{
+  "name": "wise-yolo-plugin",
+  "version": "0.1.0",
+  "description": "Wise Yolo — OpenCode V2 plugin screening shell commands with the wiseyolo classifier",
+  "type": "module",
+  "private": true,
+  "license": "Unlicense",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "devDependencies": {
+    "@opencode/plugin": "^2.0.22",
+    "@types/node": "^24",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "@opencode/plugin": ">=2.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --noEmit",
+    "test": "node --experimental-strip-types test/run.ts"
+  }
+}

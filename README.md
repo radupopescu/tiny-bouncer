@@ -112,14 +112,57 @@ eval harness, or the plugin.
 | Option | Default | Meaning |
 |---|---|---|
 | `executable` | `wiseyolo` | Binary path (absolute or on `PATH`) |
-| `timeoutMs` | `20000` | Kill timer per `check` invocation |
+| `timeoutMs` | `20000` | Kill timer per `check` invocation; must exceed the classifier's own budget |
 | `onError` | `ask` | Effect when the classifier fails: `ask` \| `deny` \| `allow` |
-| `grantFromAsk` | `false` | Let a confident classifier `allow` relax a configured `ask` |
+| `backend` | *(unset)* | Backend id passed as `--backend`; unset = the CLI's own resolution (`WISE_YOLO_BACKEND`, default `jev`) |
+| `grantFromAsk` | `false` | Let a classifier `allow` relax a configured `ask` — the only widening path |
 | `logDecisions` | `false` | Log verdicts with a hash of the command — never the text |
 
 Notes: non-`shell` permission checks pass through untouched; commands split from
 compound shell strings are screened in one batched call; an empty/absent classifier
-result is treated the same as any other failure (i.e. `onError`).
+result is treated the same as any other failure (i.e. `onError`). Strictness is
+never loosened by the classifier: a `deny` never softens, an `ask` never becomes an
+`allow`, and only `grantFromAsk` — only when the classifier says `allow` — relaxes a
+configured `ask`. At plugin load, `wiseyolo doctor` runs asynchronously: a healthy
+backend logs its model and thresholds; otherwise a single warning says screening
+will fall back to `ask`.
+
+### Environment (backends; read by the `wiseyolo` binary, not the plugin)
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `WISE_YOLO_BACKEND` | backend id when no `--backend`/option is set | `jev` |
+| `WISE_YOLO_JEV_API_KEY` / `TYPESAFE_API_KEY` | Jev credentials | — |
+| `WISE_YOLO_JEV_BASE_URL` / `TYPESAFE_ENDPOINT` | Jev endpoint override | `https://api.typesafe.ai` |
+| `WISE_YOLO_JEV_MODEL` | Jev model or alias | `jev-latest` |
+| `WISE_YOLO_TIMEOUT_MS` | per-request timeout inside the classifier | `15000` |
+| `WISE_YOLO_RETRIES` | transport retry attempts | `3` |
+| `WISE_YOLO_CACHE` | response cache on/off (`check` only) | on |
+
+### Manual TUI verification checklist
+
+Run a real OpenCode session with the plugin registered (see the snippets above) and
+confirm each step:
+
+1. **Startup** — the OpenCode log shows the plugin's setup lines: classifier facts
+   (`wiseyolo: backend …: model …, policy …, thresholds …`) or the single warning
+   `wiseyolo: screening will fall back to ask`; the session start is never delayed.
+2. **Allow without prompt** — ask for a read-only command (e.g. `git status`; with the
+   `mock` backend or benign Jev probabilities) and confirm it runs without an
+   approval prompt.
+3. **Classified `ask` → prompt with reason** — run a borderline command (mock:
+   `git reset --hard`; Jev: one that lands in the ask band) and confirm the
+   interactive approval prompt appears and carries the classifier reason.
+4. **Deny is final** — run a dangerous command (e.g. `rm -rf /`; mock rules deny it
+   with high confidence) and confirm the command is rejected with the classifier's
+   denial message, and no prompt offers to run it.
+5. **Outage → interactive ask** — stop the classifier (rename `bin/wiseyolo`, or point
+   `executable` at a missing path) and run any command: the `onError` effect (default
+   `ask`) shows the normal interactive approval prompt, and the outage is named in
+   the permission message.
+6. **Privacy** — with `logDecisions: true`, check the plugin log lines contain a
+   64-hex command hash and verdicts only; grep the log for the raw command text to
+   confirm it is absent.
 
 ## Security and privacy
 

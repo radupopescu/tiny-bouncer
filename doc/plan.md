@@ -79,7 +79,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 | T08 | Eval corpus + validation | T01 | T02, T03, T04, T05, T06 | done (T08-corpus) | a41151a |
 | T09 | Eval harness, metrics, reports, history | T03, T08, T02 | T07, T11 | done (T09-eval) | ad7c498 |
 | T10 | Live calibration + regression gates **(needs key)** | T09, T07 | — | pending | — |
-| T11 | OpenCode V2 plugin | T03 | T04, T05, T06, T07, T08, T09 | in-progress (T11-plugin) | — |
+| T11 | OpenCode V2 plugin | T03 | T04, T05, T06, T07, T08, T09 | done (T11-plugin) | — |
 | T12 | Final QA, README, end-to-end, tag | T07, T09, T10, T11 | — | pending | — |
 
 ---
