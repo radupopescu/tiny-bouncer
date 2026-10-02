@@ -72,7 +72,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 | T01 | Scaffold Go module, core contracts, backend registry, Makefile | — | — | done | 1606c88 |
 | T02 | Mock backend | T01 | T05, T08 | done | 74eaca7 |
 | T03 | `check` CLI + dispatcher | T01 | T05, T08 | done | 07a9bdc |
-| T04 | Response cache | T03 | T05, T06, T08, T11 | done (T04-cache) | <fill-after-commit> |
+| T04 | Response cache | T03 | T05, T06, T08, T11 | done (T04-cache) | 5501776 |
 | T05 | Jev HTTP client | T01 | T02, T03, T04, T08 | done | eef222e |
 | T06 | Jev backend (battery + mapping) | T05 | T04, T08, T11 | done (T06-jev-backend) | 08fbaa9 |
 | T07 | `doctor` CLI | T06 | T09, T11 | done (T07-doctor) | 8004449 |
