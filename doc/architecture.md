@@ -83,7 +83,7 @@ wise-yolo.git/
   "aggregate": { "effect": "deny", "reason": "rm -rf / destroys data beyond the workspace" },
   "meta": { "backend": "jev", "backend_model": "jev-1.13.0",
             "policy_version": "jev-policy-1.0", "thresholds_version": "tv1",
-            "wall_ms": 1420, "cached": false, "attempts": "1/1" }
+            "wall_ms": 1420, "cached": false, "attempts": "1" }
 }
 ```
 
