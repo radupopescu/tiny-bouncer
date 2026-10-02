@@ -41,9 +41,9 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// scrubKeys removes every Jev credential and backend-selection variable from
-// an environment copy, so contract tests do not depend on the developer's
-// key configuration.
+// scrubKeys removes every Jev credential, backend-selection and cache variable
+// from an environment copy, so contract tests do not depend on the
+// developer's key configuration (and never touch the developer's real cache).
 func scrubKeys(env []string) []string {
 	var out []string
 	for _, kv := range env {
@@ -51,6 +51,8 @@ func scrubKeys(env []string) []string {
 		case strings.HasPrefix(kv, "TYPESAFE_API_KEY="),
 			strings.HasPrefix(kv, "WISE_YOLO_JEV_API_KEY="),
 			strings.HasPrefix(kv, "WISE_YOLO_BACKEND="),
+			strings.HasPrefix(kv, "WISE_YOLO_CACHE="),
+			strings.HasPrefix(kv, "WISE_YOLO_CACHE_DIR="),
 			strings.HasPrefix(kv, "WISE_YOLO_JEV_THRESHOLDS="):
 		default:
 			out = append(out, kv)
@@ -174,7 +176,7 @@ func TestCheckBinaryEmptyBatch(t *testing.T) {
 }
 
 func TestCheckBinaryMetaFactsFromBackendInfo(t *testing.T) {
-	_, stdout, _ := runBinary(t, checkBin, fixture(t, "empty.json"), nil, "check", "--backend", "mock")
+	_, stdout, _ := runBinary(t, checkBin, fixture(t, "empty.json"), scrubKeys(os.Environ()), "check", "--backend", "mock", "--no-cache")
 	m := parse(t, stdout).Meta
 	if m.Backend != "mock" || m.BackendModel != "mock-rules" ||
 		m.PolicyVersion != "mock-0" || m.ThresholdsVersion != "mock-0" {
@@ -184,7 +186,7 @@ func TestCheckBinaryMetaFactsFromBackendInfo(t *testing.T) {
 		t.Fatalf("wall_ms = %d, want >= 0", m.WallMS)
 	}
 	if m.Cached {
-		t.Error("cached = true before T04, want false")
+		t.Error("empty batch cannot report cached=true: there is nothing to serve")
 	}
 	if m.Attempts != "1" {
 		t.Fatalf("attempts = %q, want 1", m.Attempts)
@@ -316,18 +318,37 @@ func TestFailcheckUnjudgedAsk(t *testing.T) {
 	}
 }
 
-func TestCheckBinaryCacheFlagsIneffectiveButParsed(t *testing.T) {
-	stdin := fixture(t, "empty.json")
-	for _, arg := range []string{"--cache", "--no-cache"} {
-		code, stdout, stderr := runBinary(t, checkBin, stdin, nil, "check", "--backend", "mock", arg)
-		if code != 0 {
-			t.Fatalf("%s: exit=%d stderr=%q", arg, code, stderr)
-		}
-		if parse(t, stdout).Meta.Cached {
-			t.Errorf("%s: cached=true before T04; flags must be ineffective", arg)
-		}
+// The flags are effective since task T04: --cache/--no-cache override the
+// WISE_YOLO_CACHE default. This test pins the override semantics with a
+// test-local cache directory.
+func TestCheckBinaryCacheFlagsOverride(t *testing.T) {
+	root := t.TempDir()
+	env := append(scrubKeys(os.Environ()),
+		"WISE_YOLO_CACHE_DIR="+root,
+		"WISE_YOLO_CACHE=false")
+	stdin := fixture(t, "happy.json")
+	// Env says off; --cache forces it on. First run is cold, second cached.
+	code, stdout, stderr := runBinary(t, checkBin, stdin, env, "check", "--backend", "mock", "--cache")
+	if code != 0 {
+		t.Fatalf("--cache: exit=%d stderr=%q", code, stderr)
 	}
-	code, _, stderr := runBinary(t, checkBin, stdin, nil, "check", "--backend", "mock", "--cache", "--no-cache")
+	if parse(t, stdout).Meta.Cached {
+		t.Error("--cache first run must still be cold: cached=true")
+	}
+	code, stdout, _ = runBinary(t, checkBin, stdin, env, "check", "--backend", "mock", "--cache")
+	if code != 0 || !parse(t, stdout).Meta.Cached {
+		t.Fatalf("--cache second run: exit=%d, want cached=true", code)
+	}
+	// --no-cache overrides a populated cache.
+	envOn := append(env, "WISE_YOLO_CACHE=true")
+	code, stdout, _ = runBinary(t, checkBin, stdin, envOn, "check", "--backend", "mock", "--no-cache")
+	if code != 0 {
+		t.Fatalf("--no-cache: exit=%d", code)
+	}
+	if parse(t, stdout).Meta.Cached {
+		t.Error("--no-cache must report cached=false even with entries present")
+	}
+	code, _, stderr = runBinary(t, checkBin, stdin, env, "check", "--backend", "mock", "--cache", "--no-cache")
 	if code != 1 || stderr == "" {
 		t.Fatalf("conflicting cache flags: exit=%d stderr=%q, want exit 1", code, stderr)
 	}

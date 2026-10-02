@@ -1,7 +1,7 @@
 // Package dispatch orchestrates one check run: normalisation, the response
-// cache hook (a no-op until task T04 lands), the backend Classify call, the
-// filling of unjudged entries, aggregation, and construction of the output
-// contract (architecture §3 and §5, pipeline steps 1, 4 and 5).
+// cache hook, the backend Classify call, the filling of unjudged entries,
+// aggregation, and construction of the output contract (architecture §3 and
+// §5, pipeline steps 1–5).
 package dispatch
 
 import (
@@ -35,9 +35,9 @@ func Normalise(cmd string) string {
 	return whitespaceRuns.ReplaceAllString(strings.TrimSpace(cmd), " ")
 }
 
-// CacheHook is the response-cache extension point (task T04). Until the cache
-// lands, NoCache reports misses and discards stores; the interface shape is
-// settled here so T04 can slot in without touching the pipeline.
+// CacheHook is the response-cache extension point (architecture §5 step 2).
+// NoCache is the inert hook (used by eval and when the cache is disabled);
+// Cache is the disk-backed implementation (task T04).
 type CacheHook interface {
 	// Lookup reports a cached verdict for a normalised command, if any. The
 	// version arguments join the cache key (architecture §5 step 2).
@@ -46,8 +46,9 @@ type CacheHook interface {
 	Store(cmd, backendName, requestedModel, policyVersion, thresholdsVersion string, v core.Verdict)
 }
 
-// NoCache is the default hook: every lookup misses, every store is discarded
-// (architecture §5 step 2; caching becomes effective in task T04).
+// NoCache is the inert hook: every lookup misses, every store is discarded
+// (architecture §5 step 2 — eval forces this so measurements are genuine
+// backend round trips).
 type NoCache struct{}
 
 // Lookup always misses.

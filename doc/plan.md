@@ -72,7 +72,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 | T01 | Scaffold Go module, core contracts, backend registry, Makefile | — | — | done | 1606c88 |
 | T02 | Mock backend | T01 | T05, T08 | done | 74eaca7 |
 | T03 | `check` CLI + dispatcher | T01 | T05, T08 | done | 07a9bdc |
-| T04 | Response cache | T03 | T05, T06, T08, T11 | in-progress (T04-cache) | — |
+| T04 | Response cache | T03 | T05, T06, T08, T11 | done (T04-cache) | <fill-after-commit> |
 | T05 | Jev HTTP client | T01 | T02, T03, T04, T08 | done | eef222e |
 | T06 | Jev backend (battery + mapping) | T05 | T04, T08, T11 | done (T06-jev-backend) | 08fbaa9 |
 | T07 | `doctor` CLI | T06 | T09, T11 | done (T07-doctor) | 8004449 |
@@ -225,12 +225,12 @@ unaffected.
 
 **Acceptance criteria**:
 
-- [ ] Unit tests: key derivation stability (input changes ⇒ different key; policy /
+- [x] Unit tests: key derivation stability (input changes ⇒ different key; policy /
       thresholds / model / backend change ⇒ different key), round-trip, corruption
       tolerance, TTL purge, mode 0600
-- [ ] Security test: after `check` over a batch containing a distinctive secret
+- [x] Security test: after `check` over a batch containing a distinctive secret
       string, `grep -R` of the secret in the cache dir finds nothing
-- [ ] Contract test: two identical `check --backend mock` invocations — first
+- [x] Contract test: two identical `check --backend mock` invocations — first
       `meta.cached:false`, second `meta.cached:true` with both results served from
       cache; index alignment preserved; `--no-cache` second run gives `cached:false`
 

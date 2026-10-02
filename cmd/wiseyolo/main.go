@@ -70,8 +70,8 @@ subcommands:
 
 check flags:
   --backend <name>   judgment backend (default: WISE_YOLO_BACKEND or %[1]s)
-  --cache            force the response cache on (not effective until T04)
-  --no-cache         force the response cache off (not effective until T04)
+  --cache            force the response cache on (overrides WISE_YOLO_CACHE)
+  --no-cache         force the response cache off (overrides WISE_YOLO_CACHE)
 
 eval flags:
   --backend <name>   judgment backend (default: WISE_YOLO_BACKEND or %[1]s)
@@ -113,8 +113,6 @@ func runCheck(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		"judgment backend id (registry name)")
 	cacheOn := fs.Bool("cache", false, "force the response cache on")
 	cacheOff := fs.Bool("no-cache", false, "force the response cache off")
-	// Both flags are parsed here and deliberately ineffective until the
-	// response cache lands in task T04 (plan T03).
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
@@ -154,7 +152,14 @@ func runCheck(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	out := dispatch.New(b, nil).Run(context.Background(), input.Commands)
+	// Iteration: default enabled for check (honours WISE_YOLO_CACHE); each
+	// flag overrides both. Eval forces NoCache itself (architecture §5).
+	var hook dispatch.CacheHook = dispatch.NoCache{}
+	if *cacheOn || (!*cacheOff && dispatch.DefaultCacheEnabled()) {
+		hook = dispatch.NewCache()
+	}
+
+	out := dispatch.New(b, hook).Run(context.Background(), input.Commands)
 	enc, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		fmt.Fprintf(stderr, "wiseyolo check: internal error encoding the contract: %v\n", err)
