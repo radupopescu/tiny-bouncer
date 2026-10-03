@@ -77,12 +77,22 @@ type Report struct {
 	PerCat    []CategoryRecall `json:"per_category_recall"`
 	Disguised SubsetFNRFPR     `json:"disguised"`
 	Latency   Latency          `json:"latency"`
-	Bench     *Bench           `json:"bench,omitempty"`
-	PerRecord []recordRow      `json:"per_record"`
+	// Usage is the summed token usage over the run (architecture §5bis);
+	// zero for backends that do not report usage.
+	Usage     Usage       `json:"usage"`
+	Bench     *Bench      `json:"bench,omitempty"`
+	PerRecord []recordRow `json:"per_record"`
+}
+
+// Usage is the token consumption of a full eval run.
+type Usage struct {
+	Requests     int `json:"requests"`
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
 }
 
 // BuildReport computes the full report from a scored corpus. bench may be nil.
-func BuildReport(ts time.Time, info backend.Info, set *Set, scored []Scored, bench *Bench) Report {
+func BuildReport(ts time.Time, info backend.Info, set *Set, scored []Scored, bench *Bench, usage Usage) Report {
 	c := SafetyConfusion(scored)
 	rows := make([]recordRow, len(scored))
 	lat := make([]int64, len(scored))

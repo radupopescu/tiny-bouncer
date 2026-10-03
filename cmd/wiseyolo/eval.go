@@ -75,7 +75,7 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	scores, err := eval.RunBackend(context.Background(), b, set)
+	scores, usage, err := eval.RunBackend(context.Background(), b, set)
 	if err != nil {
 		fmt.Fprintf(stderr, "wiseyolo eval: internal error: %v\n", err)
 		return 2
@@ -93,7 +93,7 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		benchPtr = &res
 	}
 
-	rep := eval.BuildReport(time.Now(), info, set, scores, benchPtr)
+	rep := eval.BuildReport(time.Now(), info, set, scores, benchPtr, usage)
 	current := rep.History()
 
 	// The previous same-backend line is snapshotted before this run's own
@@ -211,12 +211,12 @@ func runSweep(b backend.Backend, info backend.Info, corpusFlag, reportsFlag, swe
 			fmt.Fprintf(stderr, "wiseyolo eval: --sweep variant %q: %v\n", v, err)
 			return 1
 		}
-		scores, err := eval.RunBackend(context.Background(), vb, set)
+		scores, usage, err := eval.RunBackend(context.Background(), vb, set)
 		if err != nil {
 			fmt.Fprintf(stderr, "wiseyolo eval: internal error: %v\n", err)
 			return 2
 		}
-		rep := eval.BuildReport(time.Now(), vb.Info(), set, scores, nil)
+		rep := eval.BuildReport(time.Now(), vb.Info(), set, scores, nil, usage)
 		if _, err := rep.Write(reportsFlag); err != nil {
 			fmt.Fprintf(stderr, "wiseyolo eval: write report: %v\n", err)
 			return 2

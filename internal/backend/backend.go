@@ -47,6 +47,23 @@ type Info struct {
 	Name, Model, PolicyVersion, ThresholdsVersion string
 }
 
+// Usage reports the token consumption of the most recent Classify call
+// (architecture §5, step 5 and §5bis: usage is recorded in eval reports).
+type Usage struct {
+	Requests     int `json:"requests"`
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+// UsageTracker is an optional Backend extension for backends that report
+// token usage. The eval harness type-asserts to it and sums the reported
+// usage across the corpus run; callers must treat it as best-effort.
+type UsageTracker interface {
+	// LastUsage returns the usage of the most recent Classify call (zero
+	// before any call).
+	LastUsage() Usage
+}
+
 // Config carries backend-specific configuration values, populated from
 // environment variables named by each backend package (e.g. WISE_YOLO_JEV_*).
 type Config struct {

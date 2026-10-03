@@ -80,8 +80,20 @@ type jevBackend struct {
 	// Info() so meta.backend_model reports the resolved model.
 	mu            sync.Mutex
 	resolvedModel string
+	// lastUsage accumulates the Usage records of the most recent Classify
+	// call (architecture §5 step 5); LastUsage exposes it to the eval
+	// harness. Per Classify the counters reset to zero.
+	lastUsage backend.Usage
 	// totalAttempts accumulates Send attempt counts for the meta pipeline.
 	totalAttempts int
+}
+
+// LastUsage returns the usage of the most recent Classify call, zero before
+// any call.
+func (b *jevBackend) LastUsage() backend.Usage {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.lastUsage
 }
 
 func (b *jevBackend) Name() string { return "jev" }
@@ -144,6 +156,9 @@ func (b *jevBackend) classifyOne(ctx context.Context, raw string) core.Verdict {
 	}
 	b.mu.Lock()
 	b.totalAttempts += res.Attempts
+	b.lastUsage.Requests++
+	b.lastUsage.InputTokens += res.Response.Usage.InputTokens
+	b.lastUsage.OutputTokens += res.Response.Usage.OutputTokens
 	if res.Response.Model != "" {
 		b.resolvedModel = res.Response.Model
 	}
@@ -168,6 +183,9 @@ func (b *jevBackend) Classify(ctx context.Context, cmds []core.Command) ([]core.
 	if width > len(cmds) {
 		width = len(cmds)
 	}
+	b.mu.Lock()
+	b.lastUsage = backend.Usage{} // a new call reports its own usage only
+	b.mu.Unlock()
 	jobs := make(chan int)
 	wg := sync.WaitGroup{}
 	wg.Add(width)

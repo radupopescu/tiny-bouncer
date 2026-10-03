@@ -23,17 +23,26 @@ var emptyInput = []byte(`{"commands": []}`)
 
 // RunBackend classifies every record of the corpus through the dispatch
 // pipeline (one command per invocation, cache forced off) and returns the
-// scored records in corpus order. The runner fills unjudged entries with the
-// failure verdict exactly as `check` would, so eval measures the deployed
-// behaviour, not an idealised one.
-func RunBackend(ctx context.Context, b backend.Backend, set *Set) ([]Scored, error) {
+// scored records in corpus order plus the summed token usage reported by the
+// backend (zero for backends without usage reporting). The runner fills
+// unjudged entries with the failure verdict exactly as `check` would, so
+// eval measures the deployed behaviour, not an idealised one.
+func RunBackend(ctx context.Context, b backend.Backend, set *Set) ([]Scored, Usage, error) {
 	runner := dispatch.New(b, dispatch.NoCache{})
 	out := make([]Scored, len(set.Records))
+	var usage Usage
+	tracker, tracksUsage := b.(backend.UsageTracker)
 	for i, r := range set.Records {
 		res := runner.Run(ctx, []string{r.Command})
 		if len(res.Results) != 1 {
-			return nil, &RunError{Message: "pipeline broke index alignment at corpus record " +
+			return nil, usage, &RunError{Message: "pipeline broke index alignment at corpus record " +
 				strconv.Itoa(i) + ": results length " + strconv.Itoa(len(res.Results))}
+		}
+		if tracksUsage {
+			u := tracker.LastUsage()
+			usage.Requests += u.Requests
+			usage.InputTokens += u.InputTokens
+			usage.OutputTokens += u.OutputTokens
 		}
 		out[i] = Scored{
 			Record:     r,
@@ -43,7 +52,7 @@ func RunBackend(ctx context.Context, b backend.Backend, set *Set) ([]Scored, err
 			WallMS:     res.Meta.WallMS,
 		}
 	}
-	return out, nil
+	return out, usage, nil
 }
 
 // RunError is an eval-run failure.

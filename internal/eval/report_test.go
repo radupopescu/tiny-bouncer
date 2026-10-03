@@ -25,7 +25,7 @@ func TestReportWriteAndAppendHistory(t *testing.T) {
 	}
 	rep := BuildReport(time.Now(), backend.Info{
 		Name: "mock", Model: "mock-rules", PolicyVersion: "mock-0", ThresholdsVersion: "mock-0",
-	}, set, scored, nil)
+	}, set, scored, nil, Usage{})
 
 	path, err := rep.Write(dir)
 	if err != nil {
