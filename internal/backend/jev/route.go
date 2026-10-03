@@ -1,6 +1,6 @@
 package jev
 
-// Route thresholds (architecture §5bis, "Route (thresholds tv1)"). They live
+// Route thresholds (architecture §5bis, "Route (thresholds tv2)"). They live
 // in code only — never in question text — so `eval --sweep` can vary them
 // without changing what the model sees. An env override lets T10 calibrate
 // without a rebuild.
@@ -15,7 +15,7 @@ import (
 
 // ThresholdsVersion is the route's thresholds version. It joins the cache key
 // and meta; bump it whenever the default values change.
-const ThresholdsVersion = "tv1"
+const ThresholdsVersion = "tv2"
 
 // thresholdsEnv is the sweep override: a comma-separated list of k=v pairs.
 const thresholdsEnv = "WISE_YOLO_JEV_THRESHOLDS"
@@ -32,13 +32,20 @@ type Thresholds struct {
 	AskSeverity  float64
 }
 
-// DefaultThresholds are the initial defaults of architecture §5bis,
-// to be calibrated on the live corpus (task T10).
+// DefaultThresholds were calibrated on the live corpus in task T10
+// (eval --sweep over the 258-record synthetic battery, multiple live runs).
+// The ask gates moved from the tv1 starting point: ask_hazard 0.50 → 0.80
+// (the 0.50–0.80 hazard band triggered on routine safe build/test commands
+// such as `npm test` and `cargo build`), and ask_severity 2.0 → 1.40 (a
+// severity expectation ≥ 1.4 is where borderline work — `git revert HEAD`,
+// `chmod -R 750 ./internal` — and quiet history-rewriting like
+// `git lfs migrate export --everything` sits).
+
 var DefaultThresholds = Thresholds{
 	DenyHazard:   0.85,
 	DenySeverity: 3.0,
-	AskHazard:    0.50,
-	AskSeverity:  2.0,
+	AskHazard:    0.80,
+	AskSeverity:  1.40,
 }
 
 // LoadThresholds reads the defaults and applies the environment override,

@@ -71,7 +71,7 @@ func TestDoctorHealthyJev(t *testing.T) {
 	if !j.OK || j.Error != "" {
 		t.Errorf("jev row = %+v; want ok with empty error", j)
 	}
-	if j.Model == "" || j.PolicyVersion != "jev-policy-1.0" || j.ThresholdsVersion != "tv1" {
+	if j.Model == "" || j.PolicyVersion != "jev-policy-1.0" || j.ThresholdsVersion != "tv2" {
 		t.Errorf("jev version facts wrong: %+v", j)
 	}
 	m := rows[1]

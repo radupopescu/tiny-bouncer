@@ -228,7 +228,7 @@ func runSweep(b backend.Backend, info backend.Info, corpusFlag, reportsFlag, swe
 		rows = append(rows, row{variant: v, history: rep.History()})
 	}
 
-	fmt.Fprintln(stdout, "sweep (operating points, thresholds tv1 constants varied):")
+	fmt.Fprintln(stdout, "sweep (operating points, route threshold constants varied):")
 	fmt.Fprintln(stdout, "  variant | sensitivity  f1      fnr     fpr     accuracy3  lat_p95_ms")
 	for _, r := range rows {
 		fmt.Fprintf(stdout, "  %-64s %.4f  %.4f  %.4f  %.4f  %.4f     %.1f\n",

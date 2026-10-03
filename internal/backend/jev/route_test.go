@@ -1,6 +1,6 @@
 package jev
 
-// Route threshold table tests (architecture §5bis "Route", thresholds tv1).
+// Route threshold table tests (architecture §5bis "Route", thresholds tv2).
 // No network: routing is a pure function of maxHazard and expected severity
 // plus the thresholds.
 
@@ -24,11 +24,12 @@ func TestRouteBoundaries(t *testing.T) {
 		{"below deny severity gate alone", 0.1, 2.9, decision{effect: "ask", rule: ruleSeverityAsk}},
 		{"exactly at deny severity gate", 0.1, 3.0, decision{effect: "deny", rule: ruleSeverityDeny}},
 		{"just above deny severity gate", 0.1, 3.1, decision{effect: "deny", rule: ruleSeverityDeny}},
-		// Ask gates.
-		{"just below ask hazard gate", 0.49, 0, decision{effect: "allow", rule: ruleAllow}},
-		{"exactly at ask hazard gate", 0.50, 0, decision{effect: "ask", rule: ruleHazardAsk}},
-		{"just above ask hazard gate", 0.51, 0, decision{effect: "ask", rule: ruleHazardAsk}},
-		{"exactly at ask severity gate", 0.1, 2.0, decision{effect: "ask", rule: ruleSeverityAsk}},
+		// Ask gates (calibrated tv2: ask_hazard 0.80, ask_severity 1.40).
+		{"just below ask hazard gate", 0.79, 0, decision{effect: "allow", rule: ruleAllow}},
+		{"exactly at ask hazard gate", 0.80, 0, decision{effect: "ask", rule: ruleHazardAsk}},
+		{"just above ask hazard gate", 0.81, 0, decision{effect: "ask", rule: ruleHazardAsk}},
+		{"just below ask severity gate", 0.1, 1.39, decision{effect: "allow", rule: ruleAllow}},
+		{"exactly at ask severity gate", 0.1, 1.40, decision{effect: "ask", rule: ruleSeverityAsk}},
 		{"severity at 4 with low hazard", 0.1, 4.0, decision{effect: "deny", rule: ruleSeverityDeny}},
 		// Multi-hazard: only the max carries the verdict; a low secondary does not.
 		{"multi-hazard max denies", 0.86, 0, decision{effect: "deny", rule: ruleHazardDeny}},
@@ -59,8 +60,8 @@ func TestRouteAskVsDeny(t *testing.T) {
 	}{
 		{"hazard deny despite low severity", 0.99, 0.0, "deny"},
 		{"severity deny despite low hazard", 0.0, 3.0, "deny"},
-		{"hazard ask is not allow", 0.6, 0.0, "ask"},
-		{"severity ask is not allow", 0.0, 2.5, "ask"},
+		{"hazard ask is not allow", 0.82, 0.0, "ask"},
+		{"severity ask is not allow", 0.0, 1.45, "ask"},
 	} {
 		if got := route(defaults, tc.hazard, tc.severity).effect; string(got) != tc.wantEffect {
 			t.Errorf("%s: effect = %s, want %s", tc.name, got, tc.wantEffect)
@@ -79,8 +80,8 @@ func TestLoadThresholdsOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("defaults: %v", err)
 	}
-	if route(t0, 0.60, 0).effect != "ask" {
-		t.Fatalf("precondition: 0.60 hazard should be ask under defaults")
+	if route(t0, 0.82, 0).effect != "ask" {
+		t.Fatalf("precondition: 0.82 hazard should be ask under defaults")
 	}
 	t1, err := LoadThresholds(lookupEnv(map[string]string{
 		thresholdsEnv: "deny_hazard=0.50,deny_severity=0.0,ask_hazard=0.0,ask_severity=0.0",

@@ -195,7 +195,7 @@ func TestClassifyEndToEnd(t *testing.T) {
 	if info := b.Info(); info.Model != "jev-1.13.0" {
 		t.Errorf("post-run Info().Model = %q, want resolved jev-1.13.0", info.Model)
 	}
-	if info := b.Info(); info.Name != "jev" || info.PolicyVersion != "jev-policy-1.0" || info.ThresholdsVersion != "tv1" {
+	if info := b.Info(); info.Name != "jev" || info.PolicyVersion != "jev-policy-1.0" || info.ThresholdsVersion != "tv2" {
 		t.Errorf("Info() = %+v", info)
 	}
 }
@@ -215,8 +215,8 @@ func TestMapVerdict(t *testing.T) {
 		{"quiet command", nil, map[int]float64{0: 1.0}, core.Allow, 0, nil, []string{"allow rule"}},
 		{"hazard deny", map[string]float64{qExfiltration: 0.93}, map[int]float64{0: 1.0}, core.Deny, 0.93, []string{qExfiltration}, []string{"hazard deny rule", "0.93"}},
 		{"severity deny", nil, map[int]float64{3: 0.7, 4: 0.3}, core.Deny, 1.0, []string{}, []string{"severity deny rule", "3.30 ≥ 3.00", "1.00"}},
-		{"hazard ask", map[string]float64{qDestructiveData: 0.60}, map[int]float64{1: 1.0}, core.Ask, 0.60, []string{qDestructiveData}, []string{"hazard ask rule", "0.60"}},
-		{"severity ask", nil, map[int]float64{2: 0.4, 3: 0.4, 1: 0.2}, core.Ask, 0.80, []string{}, []string{"severity ask rule", "2.20 ≥ 2.00", "0.80"}},
+		{"hazard ask", map[string]float64{qDestructiveData: 0.82}, map[int]float64{1: 1.0}, core.Ask, 0.82, []string{qDestructiveData}, []string{"hazard ask rule", "0.82"}},
+		{"severity ask", nil, map[int]float64{2: 0.4, 3: 0.4, 1: 0.2}, core.Ask, 0.80, []string{}, []string{"severity ask rule", "2.20 ≥ 1.40", "0.80"}},
 		{
 			"multi-hazard deny reports both governing hazards",
 			map[string]float64{qExfiltration: 0.90, qDestructiveData: 0.90},
@@ -436,9 +436,9 @@ func TestThresholdOverrideThroughFactory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("defaults: %v", err)
 	}
-	resp := answeredResponse(map[string]float64{qSystemSecurity: 0.60}, map[int]float64{1: 1.0})
+	resp := answeredResponse(map[string]float64{qSystemSecurity: 0.82}, map[int]float64{1: 1.0})
 	if v, _ := mapVerdict(resp, t1); v.Effect != core.Ask {
-		t.Fatalf("pinned 0.60 hazard routes %s under defaults, want ask", v.Effect)
+		t.Fatalf("pinned 0.82 hazard routes %s under defaults, want ask", v.Effect)
 	}
 	// Same pinned probability under a lowered deny gate → deny.
 	b2, err := newBackend(t, srv, map[string]string{"WISE_YOLO_JEV_THRESHOLDS": "deny_hazard=0.50"})
