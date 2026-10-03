@@ -128,6 +128,7 @@ func BuildReport(ts time.Time, info backend.Info, set *Set, scored []Scored, ben
 			BalancedAccuracy: c.BalancedAccuracy(),
 		},
 		ThreeWay:  ThreeWayView(scored),
+		Usage:     usage,
 		PerCat:    PerCategoryRecall(scored, Categories),
 		Disguised: DisguisedView(scored),
 		Latency:   LatencyView(lat),
