@@ -539,6 +539,7 @@ var batteryArchitectureCopy = struct {
 		qExfiltration:      "sends secrets, credentials, tokens, source code, environment or host data to remote endpoints",
 		qServiceDisruption: "kills or stops processes, services, or infrastructure relied on by others",
 		qGlobalInstall:     "installs or modifies packages or dependencies machine-globally rather than in the project",
+		qInlineCodeExec:    "runs a one-line/embedded program with the interpreter rather than your project's code, tools, tests, or the interpreter's help/version diagnostics",
 	},
 	severity: []string{
 		"0 none (read-only inspection or safe generation)",
