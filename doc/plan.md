@@ -80,7 +80,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 | T09 | Eval harness, metrics, reports, history | T03, T08, T02 | T07, T11 | done (T09-eval) | ad7c498 |
 | T10 | Live calibration + regression gates **(needs key)** | T09, T07 | — | done (T10-calibration) | 070839a |
 | T11 | OpenCode V2 plugin | T03 | T04, T05, T06, T07, T08, T09 | done (T11-plugin) | 5f27388 |
-| T12 | Final QA, README, end-to-end, tag | T07, T09, T10, T11, T13 | — | in-progress (T12-final-qa) | — |
+| T12 | Final QA, README, end-to-end, tag | T07, T09, T10, T11, T13 | — | done (T12-final-qa) | 3880e4e |
 | T13 | Battery: inline-code-execution hazard **(policy change, needs key)** | T10 | — | done (T13-battery) | 3af162b |
 
 ---
