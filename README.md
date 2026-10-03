@@ -5,8 +5,9 @@ command to an external judgment backend — TypeSafe's **Jev** by default — an
 verdict into a permission decision in the [OpenCode V2](https://opencode.ai/v2/docs/)
 harness: allow the command, block it, or fall back to the normal interactive prompt.
 
-> **Status: under active development.** The implementation is tracked in
-> `doc/plan.md`; see [What works today](#what-works-today).
+> **Status: v0.1.0.** All planned tasks are complete (see `doc/plan.md`); the live
+> operating point is calibrated and gated (`FNR = 0` hard). Manual user smoke test
+> pending under way of working notes.
 
 Design principles:
 
@@ -88,13 +89,40 @@ wiseyolo doctor [--backend jev]                       # credentials/endpoint hea
   ],
   "aggregate": { "effect": "deny", "reason": "…" },
   "meta": { "backend": "jev", "backend_model": "jev-1.13.0",
-            "policy_version": "jev-policy-1.0", "thresholds_version": "tv1",
+            "policy_version": "jev-policy-1.0", "thresholds_version": "tv2",
             "wall_ms": 1420, "cached": false, "attempts": "1" }
 }
 ```
 
 Exit codes: `0` success (even when the verdict is a degraded fallback — the JSON is the
 contract), `1` usage/config error, `2` internal error. Diagnostics go to stderr.
+
+### `doctor` output
+
+`doctor` prints one **compact, line-delimited JSON object per backend** on stdout
+(grouping is by line, not indented), with a human-readable summary on stderr and exit
+code `0` only when every reported backend is healthy:
+
+```sh
+$ bin/wiseyolo doctor --backend mock   # stdout (compact, one line per backend):
+{"backend":"mock","ok":true,"model":"mock-rules","policy_version":"mock-0","thresholds_version":"mock-0","error":""}
+# → stderr (human-readable summary): wiseyolo doctor: mock: ok (model mock-rules, policy mock-0, thresholds mock-0)
+```
+
+The plugin runs `doctor` asynchronously at load (best effort) and logs the healthy
+model/threshold facts, or a single warning that screening will fall back to `ask`.
+
+### Observed operating point (live, 2026-10-03)
+
+Measured during calibration on the full 265-record corpus, model resolved as
+`jev-1.13.0` (requested via alias `jev-latest`), thresholds `tv2`:
+
+- **FNR = 0** (hard gate: no dangerous command auto-allowed), TP 171 / FN 0 / FP 13 /
+  TN 81; FPR ≈ 0.138, three-way accuracy ≈ 0.84.
+- Latency p50 ≈ 269 ms, **p95 ≈ 450 ms** per request.
+- Cost ≈ **972 input tokens per screening request** — roughly **$0.0108 per full
+  265-request eval run**, i.e. ~$0.000041 per real permission screening (pricing is
+  per input token; output tokens free). Usage is recorded in eval reports.
 
 ## Backends
 
@@ -126,6 +154,12 @@ never loosened by the classifier: a `deny` never softens, an `ask` never becomes
 configured `ask`. At plugin load, `wiseyolo doctor` runs asynchronously: a healthy
 backend logs its model and thresholds; otherwise a single warning says screening
 will fall back to `ask`.
+
+Plugin **logging is best effort**: the hook logs through OpenCode's plugin-log context
+(`ctx.log`) when available and falls back to `console.log`/`console.warn` otherwise —
+some OpenCode embedded runtimes do not surface console output, so absence of log lines
+is not itself a fault. Decision logs (with `logDecisions: true`) contain verdict plus a
+sha256 hash of the command batch, never the command text.
 
 ### Environment (backends; read by the `wiseyolo` binary, not the plugin)
 
@@ -194,5 +228,13 @@ confirm each step:
 - `doc/plan.md` — task queue + session protocol (task sessions implement one task,
   verify acceptance criteria, commit).
 - `AGENTS.md` — how agents are expected to work in this repo.
-- `make ci` — the full offline verification target
-  (`fmt`, `vet`, `build`, `test`, `eval-mock`, doctor).
+- `make ci` — the full offline verification target (`fmt`, `vet`, `build`, `test`,
+  `eval-mock`, `doctor --backend mock`); `.github/workflows/ci.yml` runs the same set
+  on every push (ubuntu, Go 1.25, no secrets required).
+- `make eval-live` — opt-in live run against Jev (`eval --backend jev --compare`); it
+  applies the regression gates from `reports/gates.json` (`FNR = 0` hard, FPR ≤ 0.15,
+  accuracy3 ≥ 0.80, p95 ≤ 1200 ms). With no key set it prints a warning and skips
+  safely. Every run appends one row to `reports/history.jsonl` — the committed
+  performance record (kept intentionally, including the calibration trail); reports
+  contain synthetic corpus commands only.
+- Plugin: `cd opencode/plugins/wise-yolo && npm run typecheck && npm run test`.
