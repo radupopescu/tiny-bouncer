@@ -1,0 +1,6 @@
+{
+  "fnr_max": 0.01,
+  "fpr_max": 0.15,
+  "accuracy3_min": 0.80,
+  "lat_p95_ms_max": 1200
+}
