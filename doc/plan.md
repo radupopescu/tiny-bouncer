@@ -81,7 +81,7 @@ Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T
 | T10 | Live calibration + regression gates **(needs key)** | T09, T07 | — | done (T10-calibration) | 070839a |
 | T11 | OpenCode V2 plugin | T03 | T04, T05, T06, T07, T08, T09 | done (T11-plugin) | 5f27388 |
 | T12 | Final QA, README, end-to-end, tag | T07, T09, T10, T11, T13 | — | pending | — |
-| T13 | Battery: inline-code-execution hazard **(policy change, needs key)** | T10 | — | in-progress (T13-battery) | — |
+| T13 | Battery: inline-code-execution hazard **(policy change, needs key)** | T10 | — | done (T13-battery) | 3af162b |
 
 ---
 
@@ -589,11 +589,12 @@ deny/ask/allow records exercising the new hazard + boundary shapes),
 
 **Acceptance criteria**:
 
-- [ ] Battery contains the new hazard; diff-verbatim test updated and green
-- [ ] Corpus additions validated (loader invariants stay green)
-- [ ] Live eval run at the new policy committed; `gates.json` restored to
-      `fnr_max: 0`; `--compare` green demonstrated
-- [ ] `doc/architecture.md` §5bis/§7 updated; queue row done
+- [x] Battery contains the new hazard; diff-verbatim test updated and green
+- [x] Corpus additions validated (loader invariants stay green)
+- [x] Live eval run at the new policy committed; `gates.json` restored to
+      `fnr_max: 0`; `--compare` green demonstrated (two consecutive runs,
+      TP 171 FN 0 FP 13 TN 81)
+- [x] `doc/architecture.md` §5bis/§7 updated; queue row done
 
 ---
 
