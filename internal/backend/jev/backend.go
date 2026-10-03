@@ -304,8 +304,8 @@ func noulProbability(a Answer) (float64, error) {
 	if a.Type != "noul" {
 		return 0, fmt.Errorf("type %q, want noul", a.Type)
 	}
-	if a.Noul != 0 {
-		return a.Noul, nil
+	if a.Noul != nil {
+		return *a.Noul, nil
 	}
 	for _, k := range []string{"p", "true"} {
 		if v, ok := a.Probabilities[k]; ok {
