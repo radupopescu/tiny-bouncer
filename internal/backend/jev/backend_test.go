@@ -38,13 +38,15 @@ func answerBody(model string, hazProb map[string]float64, sevProbs map[int]float
 		if v, ok := hazProb[h.id]; ok {
 			p = v
 		}
-		answers[h.id] = map[string]any{"type": "noul", "probabilities": map[string]any{"p": p}}
+		answers[h.id] = map[string]any{"type": "noul", "noul": p, "probabilities": map[string]any{"p": p}}
 	}
 	sev := map[string]any{}
+	legend := map[string]any{}
 	for i := 0; i <= 4; i++ {
 		sev[fmt.Sprintf("%d", i)] = sevProbs[i]
+		legend[fmt.Sprintf("%d", i)] = severityLegend[i]
 	}
-	answers[qSeverity] = map[string]any{"type": "score", "legend": severityLegend, "probabilities": sev}
+	answers[qSeverity] = map[string]any{"type": "score", "legend": legend, "probabilities": sev}
 	body, _ := json.Marshal(map[string]any{
 		"model":   model,
 		"answers": answers,

@@ -297,11 +297,15 @@ func reason(d decision, maxHazard, severity, confidence float64, t Thresholds) s
 	return fmt.Sprintf("jev %s fired: %s.", rule, measure)
 }
 
-// noulProbability extracts P(true) from a noul answer: the "p" or "true" key,
-// else the single probability present.
+// noulProbability extracts P(true) from a noul answer: the `noul` scalar
+// (the live API shape), else the "p" or "true" probability key, else the
+// single probability present.
 func noulProbability(a Answer) (float64, error) {
 	if a.Type != "noul" {
 		return 0, fmt.Errorf("type %q, want noul", a.Type)
+	}
+	if a.Noul != 0 {
+		return a.Noul, nil
 	}
 	for _, k := range []string{"p", "true"} {
 		if v, ok := a.Probabilities[k]; ok {
@@ -313,32 +317,35 @@ func noulProbability(a Answer) (float64, error) {
 			return v, nil
 		}
 	}
-	return 0, errors.New("no probability key p, true, or single value")
+	return 0, errors.New("no noul scalar or probability key p, true, or single value")
 }
 
 // severityScore extracts the expected severity (levels 0–4) and the per-level
 // probabilities from a score answer. Level probabilities are keyed by level
-// number when present, else matched against the answer's legend order.
+// number (as the live API returns them: string keys "0".."4"); the answer's
+// fractional `score` is used directly when present, else computed as the
+// expectation over the distribution.
 func severityScore(a Answer) (float64, map[int]float64, error) {
 	if a.Type != "score" {
 		return 0, nil, fmt.Errorf("type %q, want score", a.Type)
 	}
 	probs := map[int]float64{}
 	for i := 0; i <= 4; i++ {
-		p, ok := a.Probabilities[strconv.Itoa(i)]
-		if !ok && i < len(a.Legend) {
-			p, ok = a.Probabilities[a.Legend[i]]
-		}
-		if ok {
+		if p, ok := a.Probabilities[strconv.Itoa(i)]; ok {
 			probs[i] = p
 		}
 	}
 	if len(probs) == 0 {
-		return 0, nil, errors.New("no level probabilities 0..4 or legend entries")
+		return 0, nil, errors.New("no level probabilities 0..4")
 	}
 	expected := 0.0
+	norm := 0.0
 	for i, p := range probs {
 		expected += float64(i) * p
+		norm += p
+	}
+	if norm > 0 {
+		expected /= norm
 	}
 	return expected, probs, nil
 }

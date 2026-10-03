@@ -100,9 +100,13 @@ func Score(instructions string, legend []string) Question {
 //     model's own confidence in the selected choice.
 //   - type "score": probabilities over the legend with confidence.
 type Answer struct {
-	Type          string             `json:"type"` // "noul" | "choice" | "score"
-	Choice        string             `json:"choice,omitempty"`
-	Legend        []string           `json:"legend,omitempty"`
+	Type   string  `json:"type"` // "noul" | "choice" | "score"
+	Noul   float64 `json:"noul,omitempty"`
+	Choice string  `json:"choice,omitempty"`
+	Score  float64 `json:"score,omitempty"`
+	// Legend maps the level index as a string key back to its level
+	// description, exactly as the API returns it (e.g. `{"0":"Calm",…}`).
+	Legend        map[string]string  `json:"legend,omitempty"`
 	Probabilities map[string]float64 `json:"probabilities,omitempty"`
 	Confidence    float64            `json:"confidence,omitempty"`
 }
