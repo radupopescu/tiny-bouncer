@@ -222,7 +222,7 @@ func failureVerdict(err error) core.Verdict {
 }
 
 // mapVerdict reads the battery answers and routes them (architecture
-// §5bis: thresholds tv1). Answers must carry every hazard noul and the
+// §5bis: thresholds tv2). Answers must carry every hazard noul and the
 // severity score; anything missing or malformed is an error mapped to a
 // failure verdict by the caller.
 func mapVerdict(resp *Response, t Thresholds) (core.Verdict, error) {
