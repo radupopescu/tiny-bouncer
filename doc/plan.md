@@ -90,7 +90,7 @@ on-device model.
 | T13 | Battery: inline-code-execution hazard **(policy change, needs key)** | T10 | — | done (T13-battery) | 3af162b |
 | T14 | API backend (OpenAI-compatible) + AFM backend | T01 | — | done (T14-api-afm) | 287828b |
 | T15 | Cross-backend comparison (`eval --against`) | T14 | — | done (T15-compare) | 850ff2f |
-| T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | in-progress (T16-live) | — |
+| T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | done (T16-live) | — |
 
 ---
 
@@ -781,11 +781,11 @@ model (`fm available` exit 0).
 
 **Acceptance criteria**:
 
-- [ ] Live report + history line for `api` and `afm` committed (synthetic corpus only)
-- [ ] `--against jev` (and mock) runs committed with their compare reports
-- [ ] `reports/gates-api.json` / `reports/gates-afm.json` written or documented
+- [x] Live report + history line for `api` and `afm` committed (synthetic corpus only)
+- [x] `--against jev` (and mock) runs committed with their compare reports
+- [x] `reports/gates-api.json` / `reports/gates-afm.json` written or documented
       comparison-only decisions
-- [ ] Architecture §5quater/§7 updated with observed facts; queue row done
+- [x] Architecture §5quater/§7 updated with observed facts; queue row done
 
 ---
 

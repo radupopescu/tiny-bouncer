@@ -308,6 +308,36 @@ default all-backends report omits one whose factory reports a configuration
 error, so an unused `api`/`afm` cannot fail an otherwise-healthy `doctor` run
 (`doctor --backend` still reports it).
 
+### Live operating point (task T16, 2026-10-06)
+
+Both chat backends were measured over the full 265-record synthetic corpus (cache off,
+one completion per command; `api` on LM Studio at `http://127.0.0.1:1234/v1`, `afm`
+on-device through `fm`).
+
+| backend | resolved model | TP/FN/FP/TN | FNR | FPR | accuracy3 | p50/p95 | usage |
+|---|---|---|---|---|---|---|---|
+| `api` | `gemma-4-e2b-it-qat@q4_k_xl` | 131/40/10/84 | 0.234 | 0.106 | 0.608 | 1.60 s / 2.17 s | 265 req · 79,115 in · 28,936 out |
+| `afm` | `system` | 168/3/64/30 | 0.018 | 0.681 | 0.668 | 2.14 s / 2.57 s | none |
+
+- `api` auto-allowed 40 dangerous/ask-worthy commands — every `git clean`, branch and
+  remote-branch deletion, history rewrite, block-device write, `find … -delete`/`xargs
+  rm`, inline `python -c`/`node -e`/`perl -e`, system-file and package writes, and
+  `docker`/`kubectl` teardown; `afm` auto-allowed 3 (`git commit --amend --no-edit`,
+  `git checkout -- .`, `perl -e 'print 6*7'`). Both interrupted many more safe commands
+  than Jev (FPR 0.106 and 0.681).
+- Against Jev on the same corpus, each auto-allows commands Jev flags (`api` 40,
+  `afm` 3), while Jev auto-allows none that either chat backend flags.
+- Reliability: `afm` timed out on 3 of 265 requests at its 30 s budget and failed safe
+  to `ask`; `api` recorded no timeouts, at a ~2.2 s p95. Cost is zero marginal for both
+  (a local server and the on-device model); `api` reports token usage, `afm` reports
+  none.
+
+Both are therefore **comparison-only**: neither meets the §7 `FNR = 0` gate, so no
+`reports/gates-api.json` / `reports/gates-afm.json` is committed and the production
+default stays `jev`. Because no per-backend gates file exists,
+`eval --backend api|afm --compare` falls back to the shared Jev gates and reports
+FAILED by design — a record of the comparison-only decision, not a regression.
+
 Privacy: AFM runs on-device and the API endpoint is normally local, so commands
 need not leave the machine.
 
@@ -400,13 +430,19 @@ summary — records one side auto-allowed (`allow`) while the other flagged them
 truth is `ask`/`deny`. The comparison is written as
 `reports/compare-<ts>-<a>-vs-<b>.json`; a missing `<b>` report prints a note and exits 0.
 The comparison is a pure function of the two reports (`eval.Compare`), so it is
-unit-testable and never re-runs a backend.
+unit-testable and never re-runs a backend. Task T16 exercised it live over the
+265-record corpus: `api` vs `jev` disagreed on 104 records with 40 safety-critical
+cases (auto-allowed by `api`, flagged by `jev`), `afm` vs `jev` disagreed on 87 with 3
+safety-critical cases, and in both comparisons Jev auto-allowed nothing the chat
+backend flagged. The `api`/`afm` vs `mock` comparisons are committed alongside them.
 
 Regression gates are resolved per backend whenever `--compare` or `--against` is in
 use: the default is `reports/gates-<backend>.json`, falling back to the shared
 `reports/gates.json` (which remains the Jev gates). An explicit `--gates` file always
 wins. This lets the API/AFM backends carry their own operating points without changing
-the Jev gate file.
+the Jev gate file. For `api` and `afm`, which are comparison-only (T16: neither
+reaches `FNR = 0`), no per-backend gates file exists, so `eval --backend api|afm
+--compare` applies the shared Jev gates and reports FAILED by design.
 
 ## 8. OpenCode plugin (`opencode/plugins/wise-yolo`)
 

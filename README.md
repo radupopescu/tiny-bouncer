@@ -5,9 +5,10 @@ command to an external judgment backend — TypeSafe's **Jev** by default — an
 verdict into a permission decision in the [OpenCode V2](https://opencode.ai/v2/docs/)
 harness: allow the command, block it, or fall back to the normal interactive prompt.
 
-> **Status: v0.1.0.** All planned tasks are complete (see `doc/plan.md`); the live
-> operating point is calibrated and gated (`FNR = 0` hard). Manual user smoke test
-> pending under way of working notes.
+> **Status: v0.1.0.** All planned tasks are complete (see `doc/plan.md`); the live Jev
+> operating point is calibrated and gated (`FNR = 0` hard), and the optional `api`/`afm`
+> chat backends are measured and documented as **comparison-only** (see below). Manual
+> user smoke test pending under way of working notes.
 
 Design principles:
 
@@ -163,6 +164,27 @@ Regression gates are per backend when `--compare` or `--against` is in use: the 
 gates file is `reports/gates-<backend>.json`, falling back to the shared
 `reports/gates.json` (the Jev gates). An explicit `--gates <file>` still wins.
 
+### API/AFM calibration (live, 2026-10-06)
+
+Both chat backends were measured on the full 265-record corpus (cache off: `api` on LM
+Studio serving Gemma-4-E2B, `afm` on-device through `fm`). They are **comparison-only**:
+neither reaches the hard `FNR = 0` gate, so the production default stays `jev` and no
+per-backend gates file is committed.
+
+| backend | model | TP/FN/FP/TN | FNR | FPR | accuracy3 | p50/p95 |
+|---|---|---|---|---|---|---|
+| `api` | `gemma-4-e2b-it-qat@q4_k_xl` | 131/40/10/84 | 0.234 | 0.106 | 0.608 | 1.60 / 2.17 s |
+| `afm` | `system` | 168/3/64/30 | 0.018 | 0.681 | 0.668 | 2.14 / 2.57 s |
+
+`api` auto-allowed 40 dangerous/ask-worthy commands and `afm` 3; both interrupted many
+more safe commands than Jev (FPR 0.106 and 0.681). In the committed `--against jev`
+comparisons each chat backend auto-allows commands Jev flags (`api` 40, `afm` 3), while
+Jev auto-allows none that either flags. `afm` timed out on 3 of 265 requests at its 30 s
+budget and failed safe to `ask`. Cost is zero marginal for both; `api` reports token
+usage (265 req · 79,115 in · 28,936 out), `afm` none. Because no per-backend gates file
+exists, `eval --backend api|afm --compare` applies the shared Jev gates and reports
+FAILED by design — the comparison-only decision, not a regression.
+
 ## Backends
 
 | Backend | Network | Purpose |
@@ -175,6 +197,8 @@ gates file is `reports/gates-<backend>.json`, falling back to the shared
 `api` and `afm` are **optional**: `doctor`'s default report omits one whose endpoint
 (`WISE_YOLO_API_BASE_URL`) or CLI (`fm`) is not configured, so an unused optional
 backend cannot fail an otherwise-healthy run; `doctor --backend <id>` still reports it.
+Both are currently **comparison-only** (see the calibration section above): neither
+meets the hard `FNR = 0` safety gate, so the default backend stays `jev`.
 
 Adding a backend means one package under `internal/backend/<name>` implementing the
 three obligations in `doc/architecture.md` §5.2 — no changes to the CLI contract, the
@@ -296,4 +320,6 @@ confirm each step:
   (`eval --backend api|afm --compare`). `eval-api` needs `WISE_YOLO_API_BASE_URL`
   (LM Studio serving Gemma-4-E2B by default); `eval-afm` needs a ready on-device
   model (`fm available`). Either prints a warning and skips safely when unavailable.
+  Both backends are comparison-only (no per-backend gates file), so these targets
+  apply the shared Jev gates and report FAILED by design.
 - Plugin: `cd opencode/plugins/wise-yolo && npm run typecheck && npm run test`.
