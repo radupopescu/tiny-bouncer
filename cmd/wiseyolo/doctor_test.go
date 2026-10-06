@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -193,5 +195,73 @@ func TestDoctorUnreachableEndpointExitsOne(t *testing.T) {
 	}
 	if j.Error == "" {
 		t.Errorf("reachability error must be populated; row = %+v", j)
+	}
+}
+
+// TestDoctorAPI exercises the api backend's doctor path against httptest: a
+// /models 200 is healthy; a 401 is unhealthy. No network beyond httptest.
+func TestDoctorAPI(t *testing.T) {
+	healthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer healthy.Close()
+
+	env := []string{"WISE_YOLO_API_BASE_URL=" + healthy.URL, "WISE_YOLO_API_MODEL=test-model"}
+	code, stdout, stderr := runBinary(t, checkBin, "", env, "doctor", "--backend", "api")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	rows := parseDoctorRows(t, stdout)
+	if len(rows) != 1 || rows[0].Backend != "api" || !rows[0].OK {
+		t.Fatalf("rows = %+v; want exactly one ok api row", rows)
+	}
+
+	broken := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer broken.Close()
+	code, stdout, _ = runBinary(t, checkBin, "",
+		[]string{"WISE_YOLO_API_BASE_URL=" + broken.URL, "WISE_YOLO_API_MODEL=test-model"},
+		"doctor", "--backend", "api")
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1 for a 401 health check", code)
+	}
+	rows = parseDoctorRows(t, stdout)
+	if len(rows) != 1 || rows[0].OK || rows[0].Error == "" {
+		t.Fatalf("rows = %+v; want one unhealthy api row with an error", rows)
+	}
+}
+
+// TestDoctorAFM exercises the afm backend's doctor path with a fake `fm`:
+// available → exit 0; modelNotReady → exit 1. No Apple Intelligence needed.
+func TestDoctorAFM(t *testing.T) {
+	fakeFM := filepath.Join("..", "..", "internal", "backend", "chat", "testdata", "fakefm.sh")
+	code, stdout, stderr := runBinary(t, checkBin, "",
+		[]string{"WISE_YOLO_AFM_EXECUTABLE=" + fakeFM}, "doctor", "--backend", "afm")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	rows := parseDoctorRows(t, stdout)
+	if len(rows) != 1 || rows[0].Backend != "afm" || !rows[0].OK {
+		t.Fatalf("rows = %+v; want exactly one ok afm row", rows)
+	}
+
+	unready := filepath.Join(t.TempDir(), "fm.sh")
+	if err := os.WriteFile(unready,
+		[]byte("#!/bin/sh\necho 'System model unavailable: modelNotReady'\nexit 1\n"), 0o755); err != nil {
+		t.Fatalf("write shim: %v", err)
+	}
+	code, stdout, _ = runBinary(t, checkBin, "",
+		[]string{"WISE_YOLO_AFM_EXECUTABLE=" + unready}, "doctor", "--backend", "afm")
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1 when the model is not ready", code)
+	}
+	rows = parseDoctorRows(t, stdout)
+	if len(rows) != 1 || rows[0].OK || !strings.Contains(rows[0].Error, "modelNotReady") {
+		t.Fatalf("rows = %+v; want one unhealthy afm row naming modelNotReady", rows)
 	}
 }

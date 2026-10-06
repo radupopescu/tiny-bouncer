@@ -88,7 +88,7 @@ on-device model.
 | T11 | OpenCode V2 plugin | T03 | T04, T05, T06, T07, T08, T09 | done (T11-plugin) | 5f27388 |
 | T12 | Final QA, README, end-to-end, tag | T07, T09, T10, T11, T13 | — | done (T12-final-qa) | 3880e4e |
 | T13 | Battery: inline-code-execution hazard **(policy change, needs key)** | T10 | — | done (T13-battery) | 3af162b |
-| T14 | API backend (OpenAI-compatible) + AFM backend | T01 | — | in-progress (T14-api-afm) | — |
+| T14 | API backend (OpenAI-compatible) + AFM backend | T01 | — | done (T14-api-afm) | — |
 | T15 | Cross-backend comparison (`eval --against`) | T14 | — | pending | — |
 | T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | pending | — |
 
@@ -623,8 +623,10 @@ Fully testable offline (no network, no Apple Intelligence; Linux CI green).
 `internal/backend/chat/errors.go`, `internal/backend/chat/chat_test.go`,
 `internal/backend/chat/route_test.go`, `internal/backend/chat/http_test.go`,
 `internal/backend/chat/respond_test.go`, `internal/backend/chat/testdata/fakefm.sh`,
-`cmd/wiseyolo/main.go` (blank import), `cmd/wiseyolo/doctor_test.go` (relaxed
-all-backends count), `opencode/plugins/wise-yolo/index.ts` + test (scoped doctor),
+`cmd/wiseyolo/main.go` (blank import), `internal/backend/backend.go` (optional
+backend registry), `cmd/wiseyolo/doctor.go` (skip unconfigured optional backends),
+`cmd/wiseyolo/doctor_test.go` (api/afm doctor paths),
+`opencode/plugins/wise-yolo/index.ts` + test (scoped doctor),
 `Makefile` (gated `eval-api`, `eval-afm`), `README.md`,
 `doc/architecture.md` (§5quater, §6, §10), `doc/plan.md` row.
 
@@ -646,7 +648,7 @@ all-backends count), `opencode/plugins/wise-yolo/index.ts` + test (scoped doctor
 
 | id | transport | config | model |
 |---|---|---|---|
-| `api` | HTTP Chat Completions | `WISE_YOLO_API_BASE_URL` (default `http://127.0.0.1:1234/v1`), `WISE_YOLO_API_MODEL` (default `gemma-4-e2b-it-qat@q4_k_xl`), `WISE_YOLO_API_KEY` (optional) | Gemma-4-E2B |
+| `api` | HTTP Chat Completions | `WISE_YOLO_API_BASE_URL` (required, e.g. `http://127.0.0.1:1234/v1`), `WISE_YOLO_API_MODEL` (default `gemma-4-e2b-it-qat@q4_k_xl`), `WISE_YOLO_API_KEY` (optional) | Gemma-4-E2B |
 | `afm` | `fm respond --schema` | `WISE_YOLO_AFM_EXECUTABLE` (default `fm`) | `system` (macOS 27 + Apple Silicon) |
 
 Shared transport knobs: `WISE_YOLO_CHAT_CONCURRENCY` (default 1),
@@ -679,12 +681,12 @@ Shared transport knobs: `WISE_YOLO_CHAT_CONCURRENCY` (default 1),
 - Factory: `api` always constructs (defaults); `afm` returns a typed `ConfigError`
   when `fm` is absent. A down server or unavailable model is a runtime condition
   (fail-safe `ask`), not a factory error.
-- **Doctor / plugin**: registering two more backends makes `doctor` (no `--backend`)
-  report them, and the plugin's setup check would then warn about an unused backend
-  that simply is not running. So the plugin's setup check **scopes to its selected
-  backend** (`doctor --backend <id>`, id from the plugin's `backend` option or
-  `WISE_YOLO_BACKEND`, default `jev`); the doctor all-backends contract test is relaxed
-  to assert the jev/mock rows and well-formed output rather than an exact count.
+- **Doctor / plugin**: both backends register as *optional*
+  (`backend.RegisterOptional`), so doctor's default all-backends report omits one whose
+  factory reports a configuration error (`doctor --backend <id>` still reports it, and
+  selection is unaffected). The plugin's setup check is also scoped to its selected
+  backend (`doctor --backend <id>`, id from the plugin's `backend` option or
+  `WISE_YOLO_BACKEND`, default `jev`), so an unused optional backend cannot warn.
 - Tests **must not require network, `fm`, or Apple Intelligence and must run on Linux
   CI**: an `httptest` server emulates OpenAI responses (well-formed, malformed, HTTP
   error, timeout, `reasoning_content` fallback, usage); a `testdata/fakefm.sh` shim
@@ -693,20 +695,20 @@ Shared transport knobs: `WISE_YOLO_CHAT_CONCURRENCY` (default 1),
 
 **Acceptance criteria**:
 
-- [ ] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
-- [ ] Mapping/route unit table: allow/ask/deny, floors (deny-below-floor → ask,
+- [x] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
+- [x] Mapping/route unit table: allow/ask/deny, floors (deny-below-floor → ask,
       allow-below-floor → ask), invalid effect → ask, unknown-category filtering,
       `reasoning_content` fallback
-- [ ] API backend test over `httptest`: index-aligned batch, `response_format` shape
+- [x] API backend test over `httptest`: index-aligned batch, `response_format` shape
       asserted, usage summed, malformed/HTTP-error/timeout → `ask`
-- [ ] AFM backend test over the fake `fm`: index-aligned batch, one process per command
+- [x] AFM backend test over the fake `fm`: index-aligned batch, one process per command
       (≤ concurrency), reason/categories asserted, missing binary → `ConfigError`
-- [ ] `doctor` paths: `--backend api` against `httptest` healthy/unhealthy;
+- [x] `doctor` paths: `--backend api` against `httptest` healthy/unhealthy;
       `--backend afm` with a fake `fm` healthy → 0, `modelNotReady` → 1; plugin setup
       test proves the scoped `--backend` call; no network
-- [ ] `make eval-api` and `make eval-afm` present and gated (skip safely when the
+- [x] `make eval-api` and `make eval-afm` present and gated (skip safely when the
       server/model is absent); `make ci` unchanged and still green on Linux
-- [ ] README backend table (`jev`/`mock`/`api`/`afm`), quickstart, and the on-device
+- [x] README backend table (`jev`/`mock`/`api`/`afm`), quickstart, and the on-device
       privacy note; architecture §5quater + §6 + §10 written
 
 **Out of scope**: cross-backend comparison (T15); live calibration (T16); any model

@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"wiseyolo/internal/backend"
+	_ "wiseyolo/internal/backend/chat" // register the api and afm backends
 	_ "wiseyolo/internal/backend/jev"  // register the live backend (T07: both backends built in)
 	_ "wiseyolo/internal/backend/mock" // register the offline backend
 	"wiseyolo/internal/dispatch"

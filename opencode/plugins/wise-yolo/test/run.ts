@@ -18,7 +18,7 @@ import {
 	type DecisionEvent,
 	type Options,
 } from "../mapping.ts";
-import { resolveOptions, screen, setLogger } from "../index.ts";
+import { doctorArgs, resolveOptions, screen, selectedBackend, setLogger } from "../index.ts";
 
 const failures: string[] = [];
 let passed = 0;
@@ -258,6 +258,16 @@ await case_("e2e: exit 0 with invalid JSON → onError path", async () => {
 	const e = await runEvent(["git status"], "allow", { executable: stubPath });
 	assert.equal(e.effect, "ask");
 	assert.match(e.message ?? "", /invalid JSON/, "the message names the outage");
+});
+
+await case_("doctor is scoped to the selected backend", () => {
+	// An explicit plugin option wins over the environment; the environment
+	// wins over the CLI default. This keeps an unused optional backend
+	// (api, afm) from warning at setup.
+	assert.deepEqual(doctorArgs({ backend: "api" }), ["doctor", "--json", "--backend", "api"]);
+	assert.equal(selectedBackend({}, { WISE_YOLO_BACKEND: "afm" }), "afm");
+	assert.equal(selectedBackend({ backend: "api" }, { WISE_YOLO_BACKEND: "afm" }), "api");
+	assert.equal(selectedBackend({}, {}), "jev");
 });
 
 if (failures.length > 0) {

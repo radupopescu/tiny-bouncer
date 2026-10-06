@@ -87,14 +87,38 @@ func Env(key, fallback string) string {
 var registry = struct {
 	sync.RWMutex
 	factories map[string]Factory
-}{factories: make(map[string]Factory)}
+	optional  map[string]bool
+}{factories: make(map[string]Factory), optional: make(map[string]bool)}
 
 // Register installs a backend factory under a stable id. Intended to be called
 // from backend packages' init().
-func Register(name string, f Factory) {
+func Register(name string, f Factory) { register(name, f, false) }
+
+// RegisterOptional installs a backend factory for a backend that is only used
+// when the user explicitly configures it (for example an API endpoint or the
+// Apple Foundation Models CLI). doctor's default all-backends report omits such
+// a backend when its factory reports a configuration error, so a stale or
+// absent optional backend cannot turn an otherwise-healthy doctor run into a
+// warning; `doctor --backend <name>` still reports it. Selection itself is
+// unaffected: the backend is always available via --backend / WISE_YOLO_BACKEND.
+func RegisterOptional(name string, f Factory) { register(name, f, true) }
+
+func register(name string, f Factory, optional bool) {
 	registry.Lock()
 	defer registry.Unlock()
 	registry.factories[name] = f
+	if optional {
+		registry.optional[name] = true
+	} else {
+		delete(registry.optional, name)
+	}
+}
+
+// IsOptional reports whether name was registered via RegisterOptional.
+func IsOptional(name string) bool {
+	registry.RLock()
+	defer registry.RUnlock()
+	return registry.optional[name]
 }
 
 // Lookup returns the factory registered under name, if any.

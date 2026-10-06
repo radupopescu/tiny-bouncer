@@ -71,12 +71,30 @@ point at `bin/wiseyolo` explicitly:
                "onError": "ask", "timeoutMs": 20000 } }
 ```
 
+### Other backends
+
+Instead of Jev, screen with a local chat model served by LM Studio (or any
+OpenAI-compatible endpoint), or with Apple Foundation Models on-device:
+
+```sh
+# OpenAI-compatible endpoint (LM Studio serving Gemma-4-E2B)
+export WISE_YOLO_API_BASE_URL=http://127.0.0.1:1234/v1
+export WISE_YOLO_API_MODEL=gemma-4-e2b-it-qat@q4_k_xl
+bin/wiseyolo check --backend api <<< '{"commands":["git status","rm -rf /"]}'
+
+# macOS 27+ with Apple Intelligence enabled (the `fm` CLI)
+bin/wiseyolo check --backend afm <<< '{"commands":["git status","rm -rf /"]}'
+```
+
+Select one for the plugin by setting `WISE_YOLO_BACKEND` (e.g. `api`) or the plugin's
+`backend` option.
+
 ## CLI reference
 
 ```sh
-wiseyolo check [--backend jev|mock] [--cache|--no-cache] < commands.json
-wiseyolo eval  --backend jev [--compare] [--sweep]   # labelled-corpus evaluation
-wiseyolo doctor [--backend jev]                       # credentials/endpoint health
+wiseyolo check [--backend jev|mock|api|afm] [--cache|--no-cache] < commands.json
+wiseyolo eval  --backend jev|api|afm [--compare] [--sweep]   # labelled-corpus evaluation
+wiseyolo doctor [--backend jev|mock|api|afm]                 # credentials/endpoint health
 ```
 
 ### `check` output contract
@@ -109,8 +127,9 @@ $ bin/wiseyolo doctor --backend mock   # stdout (compact, one line per backend):
 # → stderr (human-readable summary): wiseyolo doctor: mock: ok (model mock-rules, policy mock-0, thresholds mock-0)
 ```
 
-The plugin runs `doctor` asynchronously at load (best effort) and logs the healthy
-model/threshold facts, or a single warning that screening will fall back to `ask`.
+The plugin runs `doctor --backend <selected>` asynchronously at load (best effort,
+scoped to the backend it will use) and logs the healthy model/threshold facts, or a
+single warning that screening will fall back to `ask`.
 
 ### Observed operating point (live, 2026-10-03)
 
@@ -129,7 +148,13 @@ Measured during calibration on the full 265-record corpus, model resolved as
 | Backend | Network | Purpose |
 |---|---|---|
 | `jev` (default) | TypeSafe System One API | Real judgments: hazard probabilities + severity, thresholds in code |
+| `api` | OpenAI-compatible endpoint (e.g. LM Studio) | Chat model: one schema-constrained completion per command (Gemma-4-E2B for now) |
+| `afm` | on-device (Apple Foundation Models) | Chat model through the `fm` CLI; macOS 27 + Apple Silicon |
 | `mock` | none | Deterministic rules for offline tests and the eval floor |
+
+`api` and `afm` are **optional**: `doctor`'s default report omits one whose endpoint
+(`WISE_YOLO_API_BASE_URL`) or CLI (`fm`) is not configured, so an unused optional
+backend cannot fail an otherwise-healthy run; `doctor --backend <id>` still reports it.
 
 Adding a backend means one package under `internal/backend/<name>` implementing the
 three obligations in `doc/architecture.md` §5.2 — no changes to the CLI contract, the
@@ -172,6 +197,12 @@ sha256 hash of the command batch, never the command text.
 | `WISE_YOLO_TIMEOUT_MS` | per-request timeout inside the classifier | `15000` |
 | `WISE_YOLO_RETRIES` | transport retry attempts | `3` |
 | `WISE_YOLO_CACHE` | response cache on/off (`check` only) | on |
+| `WISE_YOLO_API_BASE_URL` | OpenAI-compatible endpoint (`api` backend) | required for `api` |
+| `WISE_YOLO_API_MODEL` | model id (`api` backend) | `gemma-4-e2b-it-qat@q4_k_xl` |
+| `WISE_YOLO_API_KEY` | bearer token (`api` backend), if any | — |
+| `WISE_YOLO_AFM_EXECUTABLE` | `fm` CLI path (`afm` backend) | `fm` |
+| `WISE_YOLO_CHAT_CONCURRENCY` | chat backend fan-out width | `1` |
+| `WISE_YOLO_CHAT_TIMEOUT_MS` | per-command chat timeout (ms) | `30000` |
 
 ### Manual TUI verification checklist
 
@@ -207,6 +238,10 @@ confirm each step:
   record a command hash, not the text.
 - TypeSafe documents Jev as not trained on customer requests — check their DPA/ZDR
   posture when wiring production keys (see `doc/architecture.md` §9).
+- With `api` and `afm`, commands normally stay on the machine: `afm` runs entirely
+  on-device, and the `api` endpoint is typically a local server (LM Studio, Ollama).
+  A remote API endpoint carries the same "raw command text is sent to the judge"
+  caveat as Jev.
 
 ## Troubleshooting
 
@@ -237,4 +272,8 @@ confirm each step:
   safely. Every run appends one row to `reports/history.jsonl` — the committed
   performance record (kept intentionally, including the calibration trail); reports
   contain synthetic corpus commands only.
+- `make eval-api` / `make eval-afm` — opt-in live runs against the chat backends
+  (`eval --backend api|afm --compare`). `eval-api` needs `WISE_YOLO_API_BASE_URL`
+  (LM Studio serving Gemma-4-E2B by default); `eval-afm` needs a ready on-device
+  model (`fm available`). Either prints a warning and skips safely when unavailable.
 - Plugin: `cd opencode/plugins/wise-yolo && npm run typecheck && npm run test`.

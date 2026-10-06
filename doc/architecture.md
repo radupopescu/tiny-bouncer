@@ -279,6 +279,38 @@ disguised cases). Not a product feature; it exists to:
 - give `eval --backend mock` a metrics-plumbing self-test and a floor to beat,
 - document by example what a backend implements.
 
+## 5quater. Chat backends (`internal/backend/chat`)
+
+Two registered backends share one policy prompt, verdict schema, mapping and
+certainty discipline (the §10 "prompt-and-parse" class); only the transport
+differs.
+
+- **`api`** — any OpenAI-compatible Chat Completions endpoint. One strictly
+  schema-constrained completion per command (`response_format` json_schema with
+  an `effect` enum), temperature 0. `WISE_YOLO_API_BASE_URL` is required; the
+  model defaults to Gemma-4-E2B (`gemma-4-e2b-it-qat@q4_k_xl`); token usage is
+  recorded. It is evaluated only with Gemma-4-E2B for now.
+- **`afm`** — Apple Foundation Models through the official `fm` CLI: one
+  `fm respond --no-stream -g --schema <file> -i <instructions>` subprocess per
+  command with the command on stdin (macOS 27 + Apple Silicon; `fm available`
+  must succeed). `fm serve` was measured to stall under strict schema-constrained
+  decoding and is not used. No token usage is reported.
+
+Both send the exact command as the user message after a fixed policy prompt that
+defines the three effects, the strictness-only rule and the §7 category
+vocabulary. The answer is one JSON object
+`{effect, confidence, categories, reason}`; the mapping requires an effect in
+`{allow, ask, deny}`, clamps confidence, filters categories to the vocabulary,
+and applies certainty floors (`chat-tv1`): an `allow` or `deny` below its floor
+degrades to `ask`. Anything malformed, refused, timed out, or unavailable
+becomes `ask` — nothing ever widens to allow. Both backends are optional: doctor's
+default all-backends report omits one whose factory reports a configuration
+error, so an unused `api`/`afm` cannot fail an otherwise-healthy `doctor` run
+(`doctor --backend` still reports it).
+
+Privacy: AFM runs on-device and the API endpoint is normally local, so commands
+need not leave the machine.
+
 ## 6. Configuration summary
 
 | Variable | Meaning | Default |
@@ -290,6 +322,12 @@ disguised cases). Not a product feature; it exists to:
 | `WISE_YOLO_TIMEOUT_MS` | per-request timeout | `15000` |
 | `WISE_YOLO_RETRIES` | transport retries for retryable statuses | `3` attempts total |
 | `WISE_YOLO_CACHE` | response cache on/off (`check` only) | on |
+| `WISE_YOLO_API_BASE_URL` | OpenAI-compatible endpoint for the `api` backend | required for `api` |
+| `WISE_YOLO_API_MODEL` | model id for the `api` backend | `gemma-4-e2b-it-qat@q4_k_xl` |
+| `WISE_YOLO_API_KEY` | bearer token for the `api` backend, if any | — |
+| `WISE_YOLO_AFM_EXECUTABLE` | `fm` CLI path for the `afm` backend | `fm` |
+| `WISE_YOLO_CHAT_CONCURRENCY` | chat backend fan-out width | `1` |
+| `WISE_YOLO_CHAT_TIMEOUT_MS` | per-command chat timeout | `30000` |
 
 ## 7. Tests and evaluation
 
@@ -408,8 +446,9 @@ OpenCode V2 plugin registering the `permission.evaluate` hook (plugin docs:
 
 ## 10. Future backends this design anticipates
 
-- **OpenAI-compatible / Anthropic chat model** — the "prompt-and-parse" backend:
-  policy blob is a prompt, mapping is JSON parsing + schema validation.
+- **OpenAI-compatible chat model** — implemented by the `api` backend (§5quater),
+  which also covers local servers such as LM Studio and Ollama; an Anthropic
+  variant would reuse the same policy blob and mapping with a different transport.
 - **Local static analyser** — prefix/argument rules with no network; microseconds
   instead of seconds. Useful as an offline corpus linter and CI gate, or as a
   fast pre-filter stage with Jev verifying the remainder (cascade).

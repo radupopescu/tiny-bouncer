@@ -1,6 +1,6 @@
 BINARY := bin/wiseyolo
 
-.PHONY: build test fmt vet clean eval-mock eval-live doctor-mock ci
+.PHONY: build test fmt vet clean eval-mock eval-live eval-api eval-afm doctor-mock ci
 
 # `cmd/wiseyolo` lands in T03; until then `make build` compiles the tree only.
 build:
@@ -38,6 +38,25 @@ eval-live: build
 # Health check against the offline backend; part of `ci`.
 doctor-mock: build
 	$(BINARY) doctor --backend mock
+
+# `eval-api` runs the eval harness against the OpenAI-compatible API backend. It
+# needs an endpoint (e.g. LM Studio serving Gemma-4-E2B at the default model);
+# without WISE_YOLO_API_BASE_URL it prints a warning and skips safely.
+eval-api: build
+	@if [ -z "$$WISE_YOLO_API_BASE_URL" ]; then \
+		echo "eval-api: no WISE_YOLO_API_BASE_URL set — skipping (opt-in live run)"; \
+	else \
+		$(BINARY) eval --backend api --compare; \
+	fi
+
+# `eval-afm` runs the eval harness against Apple Foundation Models through the
+# `fm` CLI. Without a ready on-device model it prints a warning and skips safely.
+eval-afm: build
+	@if ! fm available >/dev/null 2>&1; then \
+		echo "eval-afm: Apple Foundation Models not available (fm available failed) — skipping"; \
+	else \
+		$(BINARY) eval --backend afm --compare; \
+	fi
 
 # Full offline verification: formatting, vet, build, tests, eval harness over the
 # mock backend, and the doctor health check. Every gate in one target.

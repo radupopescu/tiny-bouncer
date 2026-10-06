@@ -83,6 +83,12 @@ func runDoctor(args []string, _ io.Reader, stdout, stderr io.Writer) int {
 		}
 		b, err := factory(backend.Config{})
 		if err != nil {
+			// An optional backend (api, afm) that is not configured is
+			// omitted from the default report rather than failing the run;
+			// an explicit --backend still surfaces its error.
+			if *backendName == "" && backend.IsOptional(name) {
+				continue
+			}
 			// Configuration unavailable (e.g. missing API key). This is
 			// diagnosed before any network activity happens.
 			row.Error = err.Error()

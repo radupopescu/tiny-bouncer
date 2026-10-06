@@ -255,13 +255,30 @@ export function runCheck(
 // ---------------------------------------------------------------------------
 
 /**
+ * The backend the CLI would select: the plugin option first, then
+ * WISE_YOLO_BACKEND, then the CLI default (jev). Used to scope the setup
+ * doctor call so an unrelated optional backend (api, afm) that is simply not
+ * running cannot raise a false "fall back to ask" warning.
+ */
+export function selectedBackend(
+	options: { backend?: string },
+	env: Record<string, string | undefined> = process.env,
+): string {
+	return options.backend ?? env["WISE_YOLO_BACKEND"] ?? "jev";
+}
+
+/** Doctor arguments, scoped to the selected backend. */
+export function doctorArgs(options: { backend?: string }): string[] {
+	return ["doctor", "--json", "--backend", selectedBackend(options)];
+}
+
+/**
  * Run `doctor` asynchronously and log the result: healthy → model and
  * threshold facts; unhealthy → warn once that screening will fall back to
  * `ask`. Any failure resolves to a warning, never a throw into startup.
  */
 async function doctorBestEffort(options: Options & typeof defaultOptions): Promise<void> {
-	const args = ["doctor", "--json"]; // --json is accepted for the plugin contract
-	if (options.backend) args.push("--backend", options.backend);
+	const args = doctorArgs(options);
 	const raw = await new Promise<string>((resolve) => {
 		let child: ChildProcess;
 		let out = "";
