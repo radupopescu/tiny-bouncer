@@ -88,7 +88,7 @@ on-device model.
 | T11 | OpenCode V2 plugin | T03 | T04, T05, T06, T07, T08, T09 | done (T11-plugin) | 5f27388 |
 | T12 | Final QA, README, end-to-end, tag | T07, T09, T10, T11, T13 | — | done (T12-final-qa) | 3880e4e |
 | T13 | Battery: inline-code-execution hazard **(policy change, needs key)** | T10 | — | done (T13-battery) | 3af162b |
-| T14 | API backend (OpenAI-compatible) + AFM backend | T01 | — | done (T14-api-afm) | — |
+| T14 | API backend (OpenAI-compatible) + AFM backend | T01 | — | done (T14-api-afm) | 287828b |
 | T15 | Cross-backend comparison (`eval --against`) | T14 | — | pending | — |
 | T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | pending | — |
 
