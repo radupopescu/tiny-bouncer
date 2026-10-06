@@ -93,7 +93,7 @@ Select one for the plugin by setting `WISE_YOLO_BACKEND` (e.g. `api`) or the plu
 
 ```sh
 wiseyolo check [--backend jev|mock|api|afm] [--cache|--no-cache] < commands.json
-wiseyolo eval  --backend jev|api|afm [--compare] [--sweep]   # labelled-corpus evaluation
+wiseyolo eval  --backend jev|api|afm [--compare] [--against <backend>] [--sweep]   # labelled-corpus evaluation
 wiseyolo doctor [--backend jev|mock|api|afm]                 # credentials/endpoint health
 ```
 
@@ -142,6 +142,26 @@ Measured during calibration on the full 265-record corpus, model resolved as
 - Cost ≈ **972 input tokens per screening request** — roughly **$0.0108 per full
   265-request eval run**, i.e. ~$0.000041 per real permission screening (pricing is
   per input token; output tokens free). Usage is recorded in eval reports.
+
+### Cross-backend comparison (`eval --against`)
+
+`eval --backend <a> --against <b>` runs the corpus through `<a>`, then compares that run
+with the most recent stored report for `<b>` (chosen by report timestamp). It prints
+metric deltas (current − other), a 3×3 verdict-agreement matrix (rows `<a>`, columns
+`<b>`), the disagreeing records (`id`, truth, both verdicts), and a **safety-critical
+summary** — commands one side auto-allowed (`allow`) while the other side flagged them
+and the truth is `ask`/`deny`. The comparison is written as
+`reports/compare-<ts>-<a>-vs-<b>.json`. If no report exists for `<b>`, the command
+prints a note and exits 0 (nothing to compare yet).
+
+```sh
+# compare the API backend with the recorded Jev run
+bin/wiseyolo eval --backend api --against jev
+```
+
+Regression gates are per backend when `--compare` or `--against` is in use: the default
+gates file is `reports/gates-<backend>.json`, falling back to the shared
+`reports/gates.json` (the Jev gates). An explicit `--gates <file>` still wins.
 
 ## Backends
 

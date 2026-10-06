@@ -38,6 +38,14 @@ func factoryFor(name string) (backend.Backend, error) {
 	return factory(backend.Config{})
 }
 
+// fileExists reports whether path is stat-able. A path that cannot be read
+// because of a permission problem is reported absent here and surfaces as a
+// load error only for an explicit --gates path.
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 // runEval implements the eval subcommand.
 func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("eval", flag.ContinueOnError)
@@ -48,6 +56,7 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	reportsFlag := fs.String("reports", "reports", "report and history directory")
 	gatesFlag := fs.String("gates", "", "gates file to apply (with --compare, default <reports>/gates.json)")
 	compare := fs.Bool("compare", false, "compare against the most recent same-backend history line")
+	against := fs.String("against", "", "compare this run against the most recent report of another backend")
 	sweep := fs.String("sweep", "", "semicolon-separated WISE_YOLO_JEV_THRESHOLDS variants (each comma-separated key=value pairs; jev only)")
 	bench := fs.Bool("bench-spawn", false, "also benchmark empty-input spawns of this binary (mean and p95)")
 	if err := fs.Parse(args); err != nil {
@@ -123,29 +132,65 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		rep.Safety.F1, rep.Safety.FNR, rep.Safety.FPR, rep.ThreeWay.Accuracy,
 		rep.Latency.P50, rep.Latency.P95)
 
-	if !*compare && *gatesFlag == "" {
+	if *against == "" && !*compare && *gatesFlag == "" {
 		return 0
 	}
 
-	if hasPrev {
-		fmt.Fprintf(stdout, "compare: vs %s (thresholds %s)\n", prev.TS, prev.ThresholdsVersion)
-		for _, d := range eval.Deltas(prev, current) {
-			fmt.Fprintf(stdout, "  %s: %.4f → %.4f (Δ %+.4f)\n",
-				d.Field, d.Previous, d.Current, d.Change)
+	// Same-backend history deltas (T09 --compare). Preserved for a
+	// gates-only invocation so its diagnostic output is unchanged.
+	if *compare || (*against == "" && *gatesFlag != "") {
+		if hasPrev {
+			fmt.Fprintf(stdout, "compare: vs %s (thresholds %s)\n", prev.TS, prev.ThresholdsVersion)
+			for _, d := range eval.Deltas(prev, current) {
+				fmt.Fprintf(stdout, "  %s: %.4f → %.4f (Δ %+.4f)\n",
+					d.Field, d.Previous, d.Current, d.Change)
+			}
+		} else {
+			fmt.Fprintf(stdout, "compare: no previous %q line in history — nothing to compare yet\n",
+				info.Name)
 		}
-	} else {
-		fmt.Fprintf(stdout, "compare: no previous %q line in history — nothing to compare yet\n",
-			info.Name)
 	}
 
-	// Gates: an explicit --gates file is mandatory (must exist); with
-	// --compare alone the conventional <reports>/gates.json is applied only
-	// when it exists (the file is written by task T10).
+	// Cross-backend comparison (T15 --against): load the most recent report
+	// for the named backend and break this run's agreement down against it. A
+	// missing report is a note, not an error.
+	if *against != "" {
+		other, otherFound, err := eval.LatestReport(*reportsFlag, *against)
+		if err != nil {
+			fmt.Fprintf(stderr, "wiseyolo eval: against %q: %v\n", *against, err)
+			return 2
+		}
+		if !otherFound {
+			fmt.Fprintf(stdout, "against: no report found for backend %q in %s — nothing to compare\n",
+				*against, *reportsFlag)
+			return 0
+		}
+		cmp := eval.Compare(rep, other)
+		fmt.Fprint(stdout, cmp.Table())
+		cpath, err := cmp.Write(*reportsFlag)
+		if err != nil {
+			fmt.Fprintf(stderr, "wiseyolo eval: write comparison report: %v\n", err)
+			return 2
+		}
+		fmt.Fprintf(stdout, "compare report: %s\n", cpath)
+	}
+
+	// Gates: an explicit --gates file is mandatory (must exist). With
+	// --compare or --against the per-backend default
+	// <reports>/gates-<backend>.json is preferred, falling back to the shared
+	// <reports>/gates.json (kept for jev); absent defaults mean no gates are
+	// applied and the exit stays 0.
 	gatesPath := *gatesFlag
 	if gatesPath == "" {
-		gatesPath = filepath.Join(*reportsFlag, "gates.json")
-		if _, statErr := os.Stat(gatesPath); os.IsNotExist(statErr) {
-			fmt.Fprintf(stdout, "gates: %s absent — gates unset, not applied\n", gatesPath)
+		specific := filepath.Join(*reportsFlag, eval.GatesName(info.Name))
+		shared := filepath.Join(*reportsFlag, "gates.json")
+		switch {
+		case fileExists(specific):
+			gatesPath = specific
+		case fileExists(shared):
+			gatesPath = shared
+		default:
+			fmt.Fprintf(stdout, "gates: %s absent — gates unset, not applied\n", specific)
 			return 0
 		}
 	}

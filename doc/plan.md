@@ -89,7 +89,7 @@ on-device model.
 | T12 | Final QA, README, end-to-end, tag | T07, T09, T10, T11, T13 | — | done (T12-final-qa) | 3880e4e |
 | T13 | Battery: inline-code-execution hazard **(policy change, needs key)** | T10 | — | done (T13-battery) | 3af162b |
 | T14 | API backend (OpenAI-compatible) + AFM backend | T01 | — | done (T14-api-afm) | 287828b |
-| T15 | Cross-backend comparison (`eval --against`) | T14 | — | in-progress (T15-compare) | — |
+| T15 | Cross-backend comparison (`eval --against`) | T14 | — | done (T15-compare) | — |
 | T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | pending | — |
 
 ---
@@ -743,13 +743,13 @@ can be judged against each other, not only against their own history.
 
 **Acceptance criteria**:
 
-- [ ] `Compare` unit tests over synthetic reports: agreement matrix, disagreement list,
+- [x] `Compare` unit tests over synthetic reports: agreement matrix, disagreement list,
       and the safety-critical (dangerous auto-allowed by one side) summary
-- [ ] Contract test: a fixture pair (or mock then `--against mock`) prints deltas and
+- [x] Contract test: a fixture pair (or mock then `--against mock`) prints deltas and
       the matrix and writes the compare report; a missing other-backend report prints a
       note and exits 0
-- [ ] Per-backend gates resolution tested (specific present / absent → fallback)
-- [ ] `go test ./...`, `gofmt -l .`, `go vet ./...` green; no network
+- [x] Per-backend gates resolution tested (specific present / absent → fallback)
+- [x] `go test ./...`, `gofmt -l .`, `go vet ./...` green; no network
 
 ## T16 — Live API/AFM calibration + comparison facts **(needs LM Studio running)**
 

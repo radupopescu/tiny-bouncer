@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"wiseyolo/internal/backend"
 	"wiseyolo/internal/eval"
 )
 
@@ -283,5 +285,188 @@ func TestEvalBinaryUsageErrors(t *testing.T) {
 	code, _, stderr = runBinary(t, checkBin, "", nil, "eval", "--backend", "mock", "--", "stray")
 	if code != 1 || !strings.Contains(stderr, "unexpected argument") {
 		t.Fatalf("stray argument: exit=%d stderr=%q", code, stderr)
+	}
+}
+
+// compareReport is the parsed subset of a compare-*.json the contract tests
+// assert on (T15).
+type compareReport struct {
+	Current struct {
+		Backend string `json:"backend"`
+	} `json:"current"`
+	Other struct {
+		Backend string `json:"backend"`
+	} `json:"other"`
+	Matrix struct {
+		Allow struct {
+			Allow int `json:"allow"`
+			Ask   int `json:"ask"`
+			Deny  int `json:"deny"`
+		} `json:"allow"`
+		Ask struct {
+			Allow int `json:"allow"`
+			Ask   int `json:"ask"`
+			Deny  int `json:"deny"`
+		} `json:"ask"`
+		Deny struct {
+			Allow int `json:"allow"`
+			Ask   int `json:"ask"`
+			Deny  int `json:"deny"`
+		} `json:"deny"`
+	} `json:"matrix"`
+	Disagreements []struct {
+		ID      string `json:"id"`
+		Truth   string `json:"truth"`
+		Current string `json:"current"`
+		Other   string `json:"other"`
+	} `json:"disagreements"`
+	SafetyCritical struct {
+		CurrentAllowsOtherFlags int `json:"current_allows_other_flags"`
+		OtherAllowsCurrentFlags int `json:"other_allows_current_flags"`
+		Records                 []struct {
+			ID string `json:"id"`
+		} `json:"records"`
+	} `json:"safety_critical"`
+}
+
+// writeAllAllowReport writes a synthetic report for backendName whose every
+// record verdict is allow, to serve as the "other" side of a cross-backend
+// comparison. It uses the exported eval builder, so no report internals leak
+// into the contract test.
+func writeAllAllowReport(t *testing.T, dir, backendName string) string {
+	t.Helper()
+	set, err := eval.LoadEvalSet(corpusPath)
+	if err != nil {
+		t.Fatalf("corpus: %v", err)
+	}
+	scored := make([]eval.Scored, len(set.Records))
+	for i, r := range set.Records {
+		scored[i] = eval.Scored{Record: r, Verdict: "allow", Reason: "fixture", Categories: r.Categories}
+	}
+	rep := eval.BuildReport(time.Now(), backend.Info{
+		Name: backendName, Model: "fixture-model", PolicyVersion: "fixture-p", ThresholdsVersion: "fixture-t",
+	}, set, scored, nil, eval.Usage{})
+	path, err := rep.Write(dir)
+	if err != nil {
+		t.Fatalf("write fixture report: %v", err)
+	}
+	return path
+}
+
+// TestEvalBinaryAgainstWritesComparison covers `eval --against`: a fixture
+// "afm" report that allows everything is compared against a real mock run, the
+// table and deltas are printed, and a compare-*.json is written.
+func TestEvalBinaryAgainstWritesComparison(t *testing.T) {
+	dir := t.TempDir()
+	writeAllAllowReport(t, dir, "afm")
+
+	code, stdout, stderr := runBinary(t, checkBin, "", nil,
+		"eval", "--backend", "mock", "--corpus", corpusPath, "--reports", dir, "--against", "afm")
+	if code != 0 {
+		t.Fatalf("against exit=%d stderr=%q stdout=%q", code, stderr, stdout)
+	}
+	for _, want := range []string{"agreement matrix", "disagreements:", "safety-critical", "Δ="} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("stdout lacks %q:\n%s", want, stdout)
+		}
+	}
+
+	matches, _ := filepath.Glob(filepath.Join(dir, "compare-*.json"))
+	if len(matches) != 1 {
+		t.Fatalf("compare reports = %v, want exactly one", matches)
+	}
+	b, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cmp compareReport
+	if err := json.Unmarshal(b, &cmp); err != nil {
+		t.Fatalf("compare report JSON: %v\n%s", err, b)
+	}
+	if cmp.Current.Backend != "mock" || cmp.Other.Backend != "afm" {
+		t.Errorf("comparison provenance = %s vs %s, want mock vs afm",
+			cmp.Current.Backend, cmp.Other.Backend)
+	}
+	if len(cmp.Disagreements) == 0 {
+		t.Errorf("expected disagreements between mock and all-allow afm")
+	}
+	// afm allows everything, so every dangerous record mock flags is an
+	// "other auto-allowed" safety-critical case.
+	if cmp.SafetyCritical.OtherAllowsCurrentFlags == 0 ||
+		len(cmp.SafetyCritical.Records) != cmp.SafetyCritical.OtherAllowsCurrentFlags {
+		t.Errorf("safety-critical = %+v, want afm auto-allows flagged by mock", cmp.SafetyCritical)
+	}
+	var total int
+	total += cmp.Matrix.Allow.Allow + cmp.Matrix.Allow.Ask + cmp.Matrix.Allow.Deny
+	total += cmp.Matrix.Ask.Allow + cmp.Matrix.Ask.Ask + cmp.Matrix.Ask.Deny
+	total += cmp.Matrix.Deny.Allow + cmp.Matrix.Deny.Ask + cmp.Matrix.Deny.Deny
+	if total == 0 {
+		t.Errorf("agreement matrix is empty: %+v", cmp.Matrix)
+	}
+}
+
+// TestEvalBinaryAgainstMissingReportNotes checks that `--against` a backend
+// with no stored report prints a note and exits 0 without writing a compare
+// report.
+func TestEvalBinaryAgainstMissingReportNotes(t *testing.T) {
+	dir := t.TempDir()
+	code, stdout, stderr := runBinary(t, checkBin, "", nil,
+		"eval", "--backend", "mock", "--corpus", corpusPath, "--reports", dir, "--against", "jev")
+	if code != 0 {
+		t.Fatalf("missing against report: exit=%d stderr=%q", code, stderr)
+	}
+	if !strings.Contains(stdout, `no report found for backend "jev"`) {
+		t.Errorf("stdout lacks the missing-report note:\n%s", stdout)
+	}
+	if matches, _ := filepath.Glob(filepath.Join(dir, "compare-*.json")); len(matches) != 0 {
+		t.Errorf("a compare report was written for a missing counterpart: %v", matches)
+	}
+}
+
+// TestEvalBinaryPerBackendGatesResolution covers the T15 gates precedence:
+// <reports>/gates-<backend>.json wins over the shared <reports>/gates.json
+// fallback, and an explicit --gates file still wins over both.
+func TestEvalBinaryPerBackendGatesResolution(t *testing.T) {
+	dir := t.TempDir()
+	specific := filepath.Join(dir, "gates-mock.json")
+	shared := filepath.Join(dir, "gates.json")
+	explicit := filepath.Join(dir, "explicit.json")
+	for path, body := range map[string]string{
+		specific: `{"accuracy3_min": 2.0}`, // impossible -> always violates
+		shared:   `{"accuracy3_min": 0.0}`, // passes
+		explicit: `{"accuracy3_min": 0.0}`, // passes
+	} {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	compareArgs := []string{"eval", "--backend", "mock", "--corpus", corpusPath,
+		"--reports", dir, "--compare"}
+
+	// Specific file present: it is applied ahead of the shared fallback and
+	// its impossible bound fails the run.
+	code, _, stderr := runBinary(t, checkBin, "", nil, compareArgs...)
+	if code != 3 {
+		t.Fatalf("per-backend gates should fail: exit=%d stderr=%q", code, stderr)
+	}
+
+	// Specific file absent: the shared fallback applies and passes.
+	if err := os.Remove(specific); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := runBinary(t, checkBin, "", nil, compareArgs...)
+	if code != 0 || !strings.Contains(stdout, "gates: PASS") {
+		t.Fatalf("fallback gates: exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+
+	// Explicit --gates wins over a present per-backend file.
+	if err := os.WriteFile(specific, []byte(`{"accuracy3_min": 2.0}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr = runBinary(t, checkBin, "", nil,
+		"eval", "--backend", "mock", "--corpus", corpusPath,
+		"--reports", dir, "--gates", explicit)
+	if code != 0 || !strings.Contains(stdout, "gates: PASS") {
+		t.Fatalf("explicit gates: exit=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}
 }

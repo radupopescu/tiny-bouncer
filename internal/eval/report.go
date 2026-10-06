@@ -185,6 +185,52 @@ func (rep Report) Write(dir string) (string, error) {
 	return path, nil
 }
 
+// LoadReport reads a report written by Report.Write (the inverse operation),
+// so a stored report can be reloaded for cross-backend comparison (T15).
+func LoadReport(path string) (Report, error) {
+	var rep Report
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return rep, err
+	}
+	if err := json.Unmarshal(b, &rep); err != nil {
+		return rep, fmt.Errorf("report %s: %w", path, err)
+	}
+	return rep, nil
+}
+
+// LatestReport returns the most recent report recorded for backendName under
+// dir, chosen by the report's TS (RFC3339 UTC, lexicographically ordered).
+// found is false when no matching report exists; a missing or empty reports
+// directory is not an error. Reports whose filename matches but whose backend
+// provenance disagrees are ignored.
+func LatestReport(dir, backendName string) (rep Report, found bool, err error) {
+	matches, err := filepath.Glob(filepath.Join(dir, "eval-*-"+safeName(backendName)+"-*.json"))
+	if err != nil {
+		return Report{}, false, err
+	}
+	for _, p := range matches {
+		r, err := LoadReport(p)
+		if err != nil {
+			return Report{}, false, err
+		}
+		if r.Backend != backendName {
+			continue
+		}
+		if !found || r.TS > rep.TS {
+			rep, found = r, true
+		}
+	}
+	return rep, found, nil
+}
+
+// GatesName is the per-backend default gates filename for backendName,
+// matching the report naming so reports/gates-api.json belongs to `api`
+// (architecture §7; T15).
+func GatesName(backendName string) string {
+	return "gates-" + safeName(backendName) + ".json"
+}
+
 // AppendHistory adds one line to dir/history.jsonl, creating the file and the
 // directory when they do not exist (architecture §7: one line per run).
 func AppendHistory(dir string, h HistoryLine) error {

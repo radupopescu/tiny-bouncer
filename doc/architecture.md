@@ -391,6 +391,23 @@ TN 81, gates PASS, exit 0.
 Observed spawn overhead in the same demonstration: empty-input `check` invocations
 mean 6.6 ms, p95 7.2 ms over 20 runs.
 
+**Cross-backend comparison.** `eval --backend <a> --against <b>` runs the corpus
+through `<a>`, then loads the most recent stored report for `<b>` (chosen by the
+report's `ts`). It prints metric deltas (current − other) and a pure comparison of the
+two reports: a 3×3 effect-agreement matrix (rows current `<a>`, columns other `<b>`),
+the list of disagreeing records (`id`, truth, both verdicts), and a safety-critical
+summary — records one side auto-allowed (`allow`) while the other flagged them and the
+truth is `ask`/`deny`. The comparison is written as
+`reports/compare-<ts>-<a>-vs-<b>.json`; a missing `<b>` report prints a note and exits 0.
+The comparison is a pure function of the two reports (`eval.Compare`), so it is
+unit-testable and never re-runs a backend.
+
+Regression gates are resolved per backend whenever `--compare` or `--against` is in
+use: the default is `reports/gates-<backend>.json`, falling back to the shared
+`reports/gates.json` (which remains the Jev gates). An explicit `--gates` file always
+wins. This lets the API/AFM backends carry their own operating points without changing
+the Jev gate file.
+
 ## 8. OpenCode plugin (`opencode/plugins/wise-yolo`)
 
 OpenCode V2 plugin registering the `permission.evaluate` hook (plugin docs:

@@ -81,6 +81,8 @@ eval flags:
   --gates <file>     apply regression gates from this file
   --compare          versus the previous same-backend run; gates applied
                      from <reports>/gates.json when the file exists
+  --against <name>   versus the most recent report of another backend; writes a
+                     compare report and prefers <reports>/gates-<name>.json
   --sweep <variants> semicolon-separated WISE_YOLO_JEV_THRESHOLDS variants (jev only)
   --bench-spawn      time empty-input spawns of this binary (mean, p95)
 
