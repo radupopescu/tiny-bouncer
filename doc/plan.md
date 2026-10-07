@@ -43,6 +43,7 @@ One task per session; a session must not start a second task.
 | `make`, `git` | builds and commits |
 | Jev API key | only T10 (live calibration); set as `TYPESAFE_API_KEY` or `TINY_BOUNCER_JEV_API_KEY` |
 | OpenCode V2 | only T12 smoke test (manual, user-driven) |
+| `uv` ≥ 0.12, Python 3.14 venv | only T20 (live decider): `uv venv --python 3.14`, `uv pip install strands-decider`; downloads the v21 checkpoint and the ~4.5 GB Qwen3.5-2B-Base torso on first load |
 
 ## 3. Dependency graph
 
@@ -63,13 +64,17 @@ flowchart LR
     T01 --> T14[T14 API + AFM backends] --> T15[T15 cross-backend compare]
     T14 --> T16[T16 live API/AFM calibration]
     T15 --> T16
+    T17[T17 rename] --> T18[T18 shared systemone package] --> T19[T19 decider backend]
+    T19 --> T20[T20 live decider + comparison row]
 ```
 
 Critical path: T01 → T03 → T09 → T10 → T12. The Jev chain (T05→T06→T07) and the plugin
 (T11) are off the critical path and parallelisable as marked. The API/AFM chain
 (T14→T15→T16) is a post-v0.1.0 comparison track: T14 and T15 are offline and
 CI-safe, while T16 requires LM Studio (Gemma-4-E2B) and a ready Apple Intelligence
-on-device model.
+on-device model. The decider track (T18→T19→T20) is a second comparison track: T18 is a
+pure refactor, T19 is offline and CI-safe, and T20 requires the locally served Strands
+Decider checkpoint.
 
 ## 4. Task queue
 
@@ -92,6 +97,9 @@ on-device model.
 | T15 | Cross-backend comparison (`eval --against`) | T14 | — | done (T15-compare) | 850ff2f |
 | T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | done (T16-live) | f43eeba |
 | T17 | Rename project to tiny-bouncer | T16 | — | done (T17-rename) | e44cf4b |
+| T18 | Extract the System One judgment into a shared package | T17 | — | pending | — |
+| T19 | `decider` backend (Strands Decider 2B) | T18 | — | pending | — |
+| T20 | Live decider calibration + comparison row **(needs the decider server)** | T19 | — | pending | — |
 
 ---
 
@@ -828,6 +836,188 @@ plugin that moves to `opencode/plugins/tiny-bouncer/`.
 
 ---
 
+## T18 — Extract the System One judgment into a shared package
+
+**Goal**: move the battery, the route and the verdict mapping out of
+`internal/backend/jev` into `internal/backend/systemone`, so a second backend can reuse
+the reviewed policy verbatim. A pure refactor: no behaviour change, no change to Jev's
+metadata, cache keys, thresholds or reports.
+
+**Files**: `internal/backend/systemone/{types.go,battery.go,route.go,map.go,policy.go}`,
+`internal/backend/systemone/*_test.go` (moved from `internal/backend/jev`),
+`internal/backend/jev/{client.go,backend.go,errors.go,*_test.go}` (trimmed to transport,
+auth, environment and registration), `doc/architecture.md` §5bis wording, `doc/plan.md` row.
+
+**Requirements**:
+
+- `systemone` owns the wire types (`Request`, `Question`, `Answer`, `Response`, `Usage`,
+  `Noul`, `Score`), the eight hazard criteria and the severity legend verbatim from
+  architecture §5bis, the `Thresholds` struct with `route`, the mapping (`mapVerdict`,
+  `noulProbability`, `severityScore`, `reason`) and `PolicyVersion`.
+- Keep `PolicyVersion = "jev-policy-1.0"`: the id names the battery text, not the endpoint,
+  so existing reports, cache entries and compare files stay valid. Say so in §5bis.
+- `jev` keeps its HTTP client, `TINY_BOUNCER_JEV_*` / `TYPESAFE_*` resolution, `/v1/models`
+  health check, `TINY_BOUNCER_JEV_THRESHOLDS` sweep override, `DefaultThresholds`,
+  `ThresholdsVersion = "tv2"` and its registration; it calls the shared route and mapping.
+- No threshold value changes and no exported API change beyond the move.
+
+**Acceptance criteria**:
+
+- [ ] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
+- [ ] `make ci` green
+- [ ] The verbatim-battery assertion against architecture §5bis still runs, once
+- [ ] Jev battery/route/client/backend tests pass unchanged apart from package qualification
+- [ ] Queue row done
+
+**Out of scope**: adding the `decider` backend (T19); any change to the battery text,
+threshold values, policy id or transport behaviour.
+
+---
+
+## T19 — `decider` backend (Strands Decider 2B)
+
+**Goal**: a `decider` backend that screens commands against a locally served Strands
+Decider checkpoint, reusing T18's battery and route so that the comparison against Jev
+isolates the model rather than the policy. Fully testable offline; no Python is added to
+this repository — the server is an external process, as LM Studio is for `api`.
+
+**Files**: `internal/backend/decider/{backend.go,client.go,errors.go,*_test.go}`,
+`internal/backend/backend.go` (optional sweep interface), `internal/backend/systemone/route.go`
+and `internal/backend/jev/route.go` (implement it), `cmd/tinybouncer/main.go` (blank import),
+`cmd/tinybouncer/eval.go` (generic sweep), `cmd/tinybouncer/doctor_test.go`, `Makefile`
+(`eval-decider`), `README.md`, `doc/architecture.md` (§5ter, §6, §7, §10), `AGENTS.md`
+(one line on externally served backends), `doc/plan.md` row.
+
+**Upstream facts** (read from the Strands Decider repository, not the blog):
+`POST /v1/systemone` with `{state, model, questions}`; `noul` criteria `{true,false}`;
+`score` criteria 2–10 ordered levels; answers `{type, noul}` and
+`{type, score, legend, probabilities, confidence}`; usage `{input_tokens, output_tokens}`;
+`GET /health` returns the model, checkpoint, device and temperature; `422` on evaluation
+errors; localhost binding, no auth, a single uvicorn worker. The server documents that
+"compatibility with the Jev API itself is not verified"; the T20 spike is what confirms it.
+
+**Configuration**:
+
+| Variable | Default | Note |
+|---|---|---|
+| `TINY_BOUNCER_DECIDER_BASE_URL` | required (e.g. `http://127.0.0.1:8000`) | required, as for `api`, so an unconfigured backend is omitted from doctor's default report rather than failing it |
+| `TINY_BOUNCER_DECIDER_MODEL` | `strands-decider-latest` | value sent as the request `model`; the server resolves the name itself and the response `model` wins in `Info()` |
+| `TINY_BOUNCER_DECIDER_TIMEOUT_MS` | `30000` | a local 2B model is slower per request than Jev |
+| `TINY_BOUNCER_DECIDER_RETRIES` | `3` | transport errors only |
+| `TINY_BOUNCER_DECIDER_CONCURRENCY` | `1` | the server is one uvicorn worker and its concurrency behaviour is unverified |
+| `TINY_BOUNCER_DECIDER_THRESHOLDS` | — | sweep override for the bracketed key=value pairs |
+
+**Requirements**:
+
+- One `POST {base}/v1/systemone` per command carrying the shared battery, with bounded
+  fan-out and a per-request timeout; index-aligned verdicts, one per input.
+- `HealthCheck`: `GET /health`; a 200 is healthy; parse `model` and `device` so `doctor`
+  reports the actual checkpoint before any classification has run.
+- Failure discipline: `422`, `5xx`, refused connection, timeout, a missing hazard answer,
+  an unusable score, or an unknown answer type each become the failure verdict `ask`
+  naming the mode. Nothing widens to allow.
+- Register with `RegisterOptional`; a missing base URL is a typed config error.
+- `ThresholdsVersion = "dtv1"` seeded with the `tv2` values (uncalibrated); T20 sweeps
+  them and bumps the version if the values change.
+- Sweep support: an optional interface returning the backend's sweep variable, implemented
+  by `jev` and `decider`; `runSweep` uses it instead of hardcoding `jev`, and its help text
+  stops naming one backend.
+- Tests use `httptest` only: no network, no Python, green on Linux CI.
+
+**Acceptance criteria**:
+
+- [ ] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
+- [ ] httptest fixtures cover a well-formed nine-answer battery for each route branch;
+      `noul = 0.0` distinguished from an absent scalar; a missing hazard answer; a score
+      without level probabilities; an unknown answer type; `500`; `422`; a timeout; and a
+      refused connection — each mapping to the expected verdict, with failures as `ask`
+- [ ] `TINY_BOUNCER_DECIDER_BASE_URL` unset → typed config error; the default doctor report
+      omits `decider`; `doctor --backend decider` surfaces the error
+- [ ] `doctor --backend decider` against an httptest `/health` reports ok, with the model
+      taken from the health payload
+- [ ] `check --backend decider` against a canned server returns the output contract
+- [ ] `--sweep` accepted for `decider` and unchanged for `jev`
+- [ ] `make ci` green; `make eval-decider` skips safely with a clear message when
+      `TINY_BOUNCER_DECIDER_BASE_URL` is unset
+- [ ] README backend table, quickstart, environment table and CLI reference updated;
+      architecture §5ter/§6/§7/§10 updated; queue row done
+
+**Out of scope**: live measurement and calibration (T20); any change to the plugin (its
+scoped `doctor --backend <id>` already covers a new backend).
+
+---
+
+## T20 — Live decider calibration + comparison row **(needs the decider server)**
+
+**Goal**: measure `decider` (checkpoint v21) over the 265-record corpus, calibrate its
+thresholds, and add its row to the cross-backend comparison. Expected to be
+comparison-only: a 2B model is unlikely to hold `FNR = 0` over the 171 dangerous records.
+
+**Environment** (outside this repository; no Python enters the tree): `uv` and a Python
+3.14 venv with `strands-decider`, which resolves `torch 2.14.1` and `transformers 5.19.0`.
+The v21 checkpoint plus the Qwen3.5-2B-Base torso download on first load (≈ 4.5 GB).
+Python 3.14 is outside upstream's tested combination (python3.12 with torch 2.7.1 and
+transformers 5.17.0), so spike first, and fall back to a 3.12 venv with those pins if MPS
+misbehaves on torch 2.14.1. Record `uv pip freeze` under `scratch/`.
+
+```sh
+uv venv --python 3.14 ~/.venvs/decider
+uv pip install --python ~/.venvs/decider/bin/python strands-decider
+uv run --python ~/.venvs/decider/bin/python strands-decider serve \
+  StrandsAgents/strands-decider-2B-hobson-v21 --device mps --port 8000 --strict-window
+```
+
+**Files**: `scratch/decider/*` (freeze, spike transcript, sweep log; `scratch/` is
+ignored), `reports/eval-<ts>-decider-*.json`,
+`reports/compare-<ts>-decider-vs-{jev,api,afm,mock}.json`, `reports/history.jsonl`,
+`reports/summary-backends-<date>.md` (new; the 2026-10-06 file remains the T16 record),
+`reports/gates-decider.json` only if the gates are met, `README.md`,
+`doc/architecture.md` §5ter/§7, `doc/plan.md` row.
+
+**Preregistered selection rule** (fixed before the sweep, so the choice is not fitted to
+265 records after the fact): prefer any variant with `fnr = 0`; if none, minimise FNR, then
+FPR, then maximise accuracy3, treating `lat_p95 ≤ 1200 ms` as an informational target rather
+than a gate. Record the rule and its outcome together.
+
+**Requirements**:
+
+1. Spike before measuring: load the checkpoint, run one `ask`, `curl /health`, and send the
+   real battery for one command through `curl`; confirm the answer shapes, the routed
+   verdict, MPS operation and a sane per-request latency; record the resolved versions.
+2. Serve with `--strict-window` so a silently truncated state cannot distort the record.
+3. `doctor --backend decider` healthy against the real server; record the resolved model,
+   device and calibration temperature.
+4. `eval --backend decider --sweep "<variants>"` over the corpus (cache off); apply the
+   preregistered rule; commit the chosen values in code with `dtv1` or a bumped `dtv2`.
+5. A control run at Jev's `tv2` values, labelled as the like-for-like line: same decision
+   rule, different model.
+6. `eval --backend decider --against jev` and `--against api|afm|mock`: agreement matrix,
+   disagreement list and safety-critical counts — in particular whether the decider
+   auto-allows anything Jev flags, and whether Jev auto-allows anything the decider flags.
+7. Write `reports/summary-backends-<date>.md` with the decider row (TP/FN/FP/TN,
+   sensitivity, specificity, precision, F1, FNR, FPR, accuracy3, p50/p95/p99, usage), the
+   `tv2` control line, the safety-critical comparison against Jev, and the per-record error
+   composition derived from `per_record`.
+8. Verdict: commit `reports/gates-decider.json` if the gates are met; otherwise record the
+   comparison-only decision with its evidence in README and architecture.
+
+**Acceptance criteria**:
+
+- [ ] Spike transcript and `uv pip freeze` under `scratch/decider/`
+- [ ] `doctor --backend decider` healthy against the real server
+- [ ] Sweep results recorded; chosen thresholds committed with their version
+- [ ] Decider eval report and history line committed (synthetic corpus only)
+- [ ] `--against jev|api|afm|mock` compare reports committed
+- [ ] New dated summary carries the decider row, the `tv2` control and the error composition
+- [ ] README and architecture state the calibrated operating point and the comparison-only
+      or gated verdict
+- [ ] `make ci` green; queue row done
+
+**Out of scope**: other models and other checkpoints; any change to the battery text; the
+production default backend (stays `jev` unless a backend meets a justified gate).
+
+---
+
 
 Strict sequence (recommended if sessions run one at a time):
 T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 (needs key) → T11 → T12.
@@ -835,4 +1025,6 @@ T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 (nee
 Parallel opportunity set: after T01, run T02/T03/T05/T08 in independent sessions;
 after T03, T11 can start (against the mock binary) while the Jev chain proceeds.
 T10 always last-but-one; T12 must be last. The AFM track (T14 → T15 → T16) follows
-v0.1.0: T14 and T15 are offline, T16 needs the on-device model enabled.
+v0.1.0: T14 and T15 are offline, T16 needs the on-device model enabled. The decider track
+(T18 → T19 → T20) follows the rename: T18 and T19 are offline and CI-safe, T20 needs the
+locally served Strands Decider checkpoint.
