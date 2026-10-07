@@ -91,7 +91,7 @@ on-device model.
 | T14 | API backend (OpenAI-compatible) + AFM backend | T01 | — | done (T14-api-afm) | 287828b |
 | T15 | Cross-backend comparison (`eval --against`) | T14 | — | done (T15-compare) | 850ff2f |
 | T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | done (T16-live) | f43eeba |
-| T17 | Rename project to tiny-bouncer | T16 | — | done (T17-rename) | — |
+| T17 | Rename project to tiny-bouncer | T16 | — | done (T17-rename) | e44cf4b |
 
 ---
 
