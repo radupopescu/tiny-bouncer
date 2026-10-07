@@ -1,9 +1,10 @@
 package jev
 
-// The Jev backend proper (architecture §5bis): battery + verdict mapping
-// wired onto the System One transport from the T05 client, registered in the
-// backend registry. One request per command, bounded fan-out, fail-safe to
-// ask for entries it cannot judge.
+// The Jev backend proper (architecture §5bis): the shared hazard battery and
+// verdict mapping (internal/backend/systemone) wired onto the System One
+// transport from the T05 client, registered in the backend registry. One
+// request per command, bounded fan-out, fail-safe to ask for entries it
+// cannot judge.
 //
 // Certainty discipline (architecture §5.3) is inherent in the route: a deny
 // fires only above its gates, nothing is ever auto-upgraded from deny or ask
@@ -11,7 +12,6 @@ package jev
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"tinybouncer/internal/backend"
+	"tinybouncer/internal/backend/systemone"
 	"tinybouncer/internal/core"
 )
 
@@ -71,7 +72,7 @@ func factory(cfg backend.Config) (backend.Backend, error) {
 // jevBackend implements backend.Backend for Jev. Safe for concurrent use.
 type jevBackend struct {
 	client     *Client
-	thresholds Thresholds
+	thresholds systemone.Thresholds
 	// concurrency bounds the fan-out width, default 5 (TINY_BOUNCER_CONCURRENCY).
 	concurrency int
 
@@ -111,7 +112,7 @@ func (b *jevBackend) Info() backend.Info {
 	return backend.Info{
 		Name:              "jev",
 		Model:             model,
-		PolicyVersion:     PolicyVersion,
+		PolicyVersion:     systemone.PolicyVersion,
 		ThresholdsVersion: ThresholdsVersion,
 	}
 }
@@ -147,7 +148,7 @@ func (b *jevBackend) HealthCheck(ctx context.Context) error {
 // rather than errors, so the batch stays index-aligned with one entry per
 // input.
 func (b *jevBackend) classifyOne(ctx context.Context, raw string) core.Verdict {
-	res, err := b.client.Send(ctx, batteryRequest(raw))
+	res, err := b.client.Send(ctx, systemone.BatteryRequest(raw))
 	if err != nil {
 		b.mu.Lock()
 		b.totalAttempts++
@@ -163,7 +164,7 @@ func (b *jevBackend) classifyOne(ctx context.Context, raw string) core.Verdict {
 		b.resolvedModel = res.Response.Model
 	}
 	b.mu.Unlock()
-	v, err := mapVerdict(res.Response, b.thresholds)
+	v, err := systemone.MapVerdict(res.Response, b.thresholds, "jev")
 	if err != nil {
 		return failureVerdict(err)
 	}
@@ -219,151 +220,4 @@ func failureVerdict(err error) core.Verdict {
 		Confidence: 0,
 		Reason:     fmt.Sprintf("jev: command unjudged (%v): defaulting to ask", err),
 	}
-}
-
-// mapVerdict reads the battery answers and routes them (architecture
-// §5bis: thresholds tv2). Answers must carry every hazard noul and the
-// severity score; anything missing or malformed is an error mapped to a
-// failure verdict by the caller.
-func mapVerdict(resp *Response, t Thresholds) (core.Verdict, error) {
-	maxHazard, maxHazardIDs := 0.0, []string{}
-	for _, h := range hazards {
-		a, ok := resp.Answers[h.id]
-		if !ok {
-			return core.Verdict{}, fmt.Errorf("jev: answer for %q missing", h.id)
-		}
-		p, err := noulProbability(a)
-		if err != nil {
-			return core.Verdict{}, fmt.Errorf("jev: answer for %q unusable: %v", h.id, err)
-		}
-		if p > maxHazard {
-			maxHazard = p
-			maxHazardIDs = []string{h.id}
-		} else if p == maxHazard && p > 0 {
-			maxHazardIDs = append(maxHazardIDs, h.id)
-		}
-	}
-	a, ok := resp.Answers[qSeverity]
-	if !ok {
-		return core.Verdict{}, fmt.Errorf("jev: answer for %q missing", qSeverity)
-	}
-	severity, levelProbs, err := severityScore(a)
-	if err != nil {
-		return core.Verdict{}, fmt.Errorf("jev: answer for %q unusable: %v", qSeverity, err)
-	}
-
-	d := route(t, maxHazard, severity)
-	if d.rule == ruleAllow {
-		return core.Verdict{
-			Effect:     core.Allow,
-			Confidence: maxHazard,
-			Reason:     reason(d, maxHazard, severity, maxHazard, t),
-		}, nil
-	}
-
-	// Categories hold the governing hazard names: every hazard at or above
-	// the ask gate (for a severity-decided verdict, at least the max hazard).
-	level := d.severityLevel
-	if level == 0 {
-		level = 2 // hazard-decided: report hazards at or above the ask gate
-	}
-	categories := []string{}
-	for _, h := range hazards {
-		if a, ok := resp.Answers[h.id]; ok {
-			if p, err := noulProbability(a); err == nil && p >= t.AskHazard {
-				categories = append(categories, h.id)
-			}
-		}
-	}
-	if len(categories) == 0 {
-		categories = maxHazardIDs
-	}
-
-	// Confidence is the governing probability: the decisive hazard
-	// probability, or — when the severity gate decided — the probability
-	// mass at level `level` or above.
-	confidence := maxHazard
-	if d.rule == ruleSeverityDeny || d.rule == ruleSeverityAsk {
-		confidence = 0
-		for i := level; i <= 4; i++ {
-			confidence += levelProbs[i]
-		}
-	}
-	return core.Verdict{
-		Effect:     d.effect,
-		Confidence: confidence,
-		Categories: categories,
-		Reason:     reason(d, maxHazard, severity, confidence, t),
-	}, nil
-}
-
-// reason is one sentence naming the fired rule and the decisive probability.
-func reason(d decision, maxHazard, severity, confidence float64, t Thresholds) string {
-	var rule, measure string
-	switch d.rule {
-	case ruleHazardDeny:
-		rule, measure = "hazard deny rule", fmt.Sprintf("max hazard probability %.2f ≥ %.2f", maxHazard, t.DenyHazard)
-	case ruleSeverityDeny:
-		rule, measure = "severity deny rule", fmt.Sprintf("expected severity %.2f ≥ %.2f (P(≥%d) = %.2f)", severity, t.DenySeverity, d.severityLevel, confidence)
-	case ruleHazardAsk:
-		rule, measure = "hazard ask rule", fmt.Sprintf("max hazard probability %.2f ≥ %.2f", maxHazard, t.AskHazard)
-	case ruleSeverityAsk:
-		rule, measure = "severity ask rule", fmt.Sprintf("expected severity %.2f ≥ %.2f (P(≥%d) = %.2f)", severity, t.AskSeverity, d.severityLevel, confidence)
-	default:
-		rule, measure = "allow rule", fmt.Sprintf("max hazard probability %.2f < %.2f and severity %.2f < %.2f", maxHazard, t.AskHazard, severity, t.AskSeverity)
-	}
-	return fmt.Sprintf("jev %s fired: %s.", rule, measure)
-}
-
-// noulProbability extracts P(true) from a noul answer: the `noul` scalar
-// (the live API shape), else the "p" or "true" probability key, else the
-// single probability present.
-func noulProbability(a Answer) (float64, error) {
-	if a.Type != "noul" {
-		return 0, fmt.Errorf("type %q, want noul", a.Type)
-	}
-	if a.Noul != nil {
-		return *a.Noul, nil
-	}
-	for _, k := range []string{"p", "true"} {
-		if v, ok := a.Probabilities[k]; ok {
-			return v, nil
-		}
-	}
-	if len(a.Probabilities) == 1 {
-		for _, v := range a.Probabilities {
-			return v, nil
-		}
-	}
-	return 0, errors.New("no noul scalar or probability key p, true, or single value")
-}
-
-// severityScore extracts the expected severity (levels 0–4) and the per-level
-// probabilities from a score answer. Level probabilities are keyed by level
-// number (as the live API returns them: string keys "0".."4"); the answer's
-// fractional `score` is used directly when present, else computed as the
-// expectation over the distribution.
-func severityScore(a Answer) (float64, map[int]float64, error) {
-	if a.Type != "score" {
-		return 0, nil, fmt.Errorf("type %q, want score", a.Type)
-	}
-	probs := map[int]float64{}
-	for i := 0; i <= 4; i++ {
-		if p, ok := a.Probabilities[strconv.Itoa(i)]; ok {
-			probs[i] = p
-		}
-	}
-	if len(probs) == 0 {
-		return 0, nil, errors.New("no level probabilities 0..4")
-	}
-	expected := 0.0
-	norm := 0.0
-	for i, p := range probs {
-		expected += float64(i) * p
-		norm += p
-	}
-	if norm > 0 {
-		expected /= norm
-	}
-	return expected, probs, nil
 }

@@ -180,6 +180,14 @@ Three obligations:
    nouls and severity score; chat backend: parsed `allow|deny|ask` + confidence).
 3. **HealthCheck** for `doctor`.
 
+Backends that speak the System One contract share one judgment package:
+`internal/backend/systemone` holds the reviewed battery (`§5bis`), the threshold table
+with its strict override parser, and the mapping from battery answers to `Verdict`. Such
+a backend supplies its own transport, configuration, operating point and health check;
+it must not restate the question wording or the route arithmetic. `PolicyVersion` names
+that shared battery text rather than an endpoint, so every backend asking these questions
+records the same policy identity.
+
 ### 5.3 Certainty discipline (backend contract)
 
 Every backend must apply its own certainty discipline: a `deny` may be emitted only
@@ -223,6 +231,11 @@ the backend so the generic pipeline never second-guesses verdicts.
   far below both.
 
 ### Battery (policy `jev-policy-1.0`)
+
+The battery, the route table and the verdict mapping are compiled in
+`internal/backend/systemone` (`§5.2`) and shared with every other System One backend;
+the policy id names this question text, not the TypeSafe endpoint. `internal/backend/jev`
+keeps the Jev transport, credentials, operating point and health check.
 
 **State**: `{"command": "<exact command string>"}` — one command per request.
 
@@ -268,7 +281,9 @@ ask_severity 2.0 → 1.40 — an expected severity ≥ 1.4 is where borderline w
 (tv2 retained). Observed operating point at tv2 after the T13 battery/corpus
 extension (265 records): TP 171, FN 0, FP 13, TN 81, FNR 0, FPR ≈ 0.138,
 three-way accuracy ≈ 0.84, p50 ≈ 269 ms, p95 ≈ 446–460 ms. The resolved model id is
-`jev-1.13.0` (sent as alias `jev-latest`).
+`jev-1.13.0` (sent as alias `jev-latest`). The four values are Jev's operating point; the
+route arithmetic and the strict `TINY_BOUNCER_JEV_THRESHOLDS` parser are shared in
+`internal/backend/systemone`.
 
 ## 5ter. Mock backend (`internal/backend/mock`)
 

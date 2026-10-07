@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"tinybouncer/internal/backend"
+	"tinybouncer/internal/backend/systemone"
 	"tinybouncer/internal/core"
 )
 
@@ -33,20 +34,20 @@ func valuesFor(values map[string]string) func(string) string {
 // overrides only the decisive entries.
 func answerBody(model string, hazProb map[string]float64, sevProbs map[int]float64) string {
 	answers := map[string]any{}
-	for _, h := range hazards {
+	for _, h := range systemone.Hazards {
 		p := 0.0
-		if v, ok := hazProb[h.id]; ok {
+		if v, ok := hazProb[h.ID]; ok {
 			p = v
 		}
-		answers[h.id] = map[string]any{"type": "noul", "noul": p, "probabilities": map[string]any{"p": p}}
+		answers[h.ID] = map[string]any{"type": "noul", "noul": p, "probabilities": map[string]any{"p": p}}
 	}
 	sev := map[string]any{}
 	legend := map[string]any{}
 	for i := 0; i <= 4; i++ {
 		sev[fmt.Sprintf("%d", i)] = sevProbs[i]
-		legend[fmt.Sprintf("%d", i)] = severityLegend[i]
+		legend[fmt.Sprintf("%d", i)] = systemone.SeverityLegend[i]
 	}
-	answers[qSeverity] = map[string]any{"type": "score", "legend": legend, "probabilities": sev}
+	answers[systemone.Severity] = map[string]any{"type": "score", "legend": legend, "probabilities": sev}
 	body, _ := json.Marshal(map[string]any{
 		"model":   model,
 		"answers": answers,
@@ -167,8 +168,8 @@ func TestClassifyEndToEnd(t *testing.T) {
 	seen := map[string]bool{}
 	var shapeAssertions int
 	for _, rec := range *requests {
-		if len(rec.questionIDs) != len(hazards)+1 {
-			t.Errorf("request for %q carried %d questions, want %d", rec.stateCommand, len(rec.questionIDs), len(hazards)+1)
+		if len(rec.questionIDs) != len(systemone.Hazards)+1 {
+			t.Errorf("request for %q carried %d questions, want %d", rec.stateCommand, len(rec.questionIDs), len(systemone.Hazards)+1)
 		}
 		shapeAssertions++
 		seen[rec.stateCommand] = true
@@ -213,20 +214,20 @@ func TestMapVerdict(t *testing.T) {
 		wantReason []string // substrings
 	}{
 		{"quiet command", nil, map[int]float64{0: 1.0}, core.Allow, 0, nil, []string{"allow rule"}},
-		{"hazard deny", map[string]float64{qExfiltration: 0.93}, map[int]float64{0: 1.0}, core.Deny, 0.93, []string{qExfiltration}, []string{"hazard deny rule", "0.93"}},
+		{"hazard deny", map[string]float64{systemone.Exfiltration: 0.93}, map[int]float64{0: 1.0}, core.Deny, 0.93, []string{systemone.Exfiltration}, []string{"hazard deny rule", "0.93"}},
 		{"severity deny", nil, map[int]float64{3: 0.7, 4: 0.3}, core.Deny, 1.0, []string{}, []string{"severity deny rule", "3.30 ≥ 3.00", "1.00"}},
-		{"hazard ask", map[string]float64{qDestructiveData: 0.82}, map[int]float64{1: 1.0}, core.Ask, 0.82, []string{qDestructiveData}, []string{"hazard ask rule", "0.82"}},
+		{"hazard ask", map[string]float64{systemone.DestructiveData: 0.82}, map[int]float64{1: 1.0}, core.Ask, 0.82, []string{systemone.DestructiveData}, []string{"hazard ask rule", "0.82"}},
 		{"severity ask", nil, map[int]float64{2: 0.4, 3: 0.4, 1: 0.2}, core.Ask, 0.80, []string{}, []string{"severity ask rule", "2.20 ≥ 1.40", "0.80"}},
 		{
 			"multi-hazard deny reports both governing hazards",
-			map[string]float64{qExfiltration: 0.90, qDestructiveData: 0.90},
+			map[string]float64{systemone.Exfiltration: 0.90, systemone.DestructiveData: 0.90},
 			map[int]float64{0: 1.0},
-			core.Deny, 0.90, []string{qDestructiveData, qExfiltration}, []string{"hazard deny rule"},
+			core.Deny, 0.90, []string{systemone.DestructiveData, systemone.Exfiltration}, []string{"hazard deny rule"},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			v, err := mapVerdict(answeredResponse(tc.hazProb, tc.sevProbs), DefaultThresholds)
+			v, err := systemone.MapVerdict(answeredResponse(tc.hazProb, tc.sevProbs), DefaultThresholds, "jev")
 			if err != nil {
 				t.Fatalf("mapVerdict: %v", err)
 			}
@@ -436,8 +437,8 @@ func TestThresholdOverrideThroughFactory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("defaults: %v", err)
 	}
-	resp := answeredResponse(map[string]float64{qSystemSecurity: 0.82}, map[int]float64{1: 1.0})
-	if v, _ := mapVerdict(resp, t1); v.Effect != core.Ask {
+	resp := answeredResponse(map[string]float64{systemone.SystemSecurity: 0.82}, map[int]float64{1: 1.0})
+	if v, _ := systemone.MapVerdict(resp, t1, "jev"); v.Effect != core.Ask {
 		t.Fatalf("pinned 0.82 hazard routes %s under defaults, want ask", v.Effect)
 	}
 	// Same pinned probability under a lowered deny gate → deny.
@@ -449,7 +450,7 @@ func TestThresholdOverrideThroughFactory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("override load: %v", err)
 	}
-	if v, _ := mapVerdict(resp, t2); v.Effect != core.Deny {
+	if v, _ := systemone.MapVerdict(resp, t2, "jev"); v.Effect != core.Deny {
 		t.Errorf("pinned 0.60 hazard routes %s under the override, want deny", v.Effect)
 	}
 	if b1.Name() != "jev" || b2.Name() != "jev" {
@@ -532,14 +533,14 @@ var batteryArchitectureCopy = struct {
 	severity []string
 }{
 	hazards: map[string]string{
-		qDestructiveData:   "permanently destroys, deletes, or overwrites data (files, directories, disks, databases, volumes)",
-		qSystemSecurity:    "changes system state, security posture, or machine-global configuration outside the workspace (sudo, system directories, services, kernel, launch agents)",
-		qForcedSCM:         "bypasses review or discards work in version control (force push, hard reset, clean, history rewriting)",
-		qRemoteExecution:   "obtains executables or code from remote endpoints and runs them, or publishes code/packages to registries",
-		qExfiltration:      "sends secrets, credentials, tokens, source code, environment or host data to remote endpoints",
-		qServiceDisruption: "kills or stops processes, services, or infrastructure relied on by others",
-		qGlobalInstall:     "installs or modifies packages or dependencies machine-globally rather than in the project",
-		qInlineCodeExec:    "runs a one-line/embedded program with the interpreter rather than your project's code, tools, tests, or the interpreter's help/version diagnostics",
+		systemone.DestructiveData:   "permanently destroys, deletes, or overwrites data (files, directories, disks, databases, volumes)",
+		systemone.SystemSecurity:    "changes system state, security posture, or machine-global configuration outside the workspace (sudo, system directories, services, kernel, launch agents)",
+		systemone.ForcedSCM:         "bypasses review or discards work in version control (force push, hard reset, clean, history rewriting)",
+		systemone.RemoteExecution:   "obtains executables or code from remote endpoints and runs them, or publishes code/packages to registries",
+		systemone.Exfiltration:      "sends secrets, credentials, tokens, source code, environment or host data to remote endpoints",
+		systemone.ServiceDisruption: "kills or stops processes, services, or infrastructure relied on by others",
+		systemone.GlobalInstall:     "installs or modifies packages or dependencies machine-globally rather than in the project",
+		systemone.InlineCodeExec:    "runs a one-line/embedded program with the interpreter rather than your project's code, tools, tests, or the interpreter's help/version diagnostics",
 	},
 	severity: []string{
 		"0 none (read-only inspection or safe generation)",
@@ -553,23 +554,23 @@ var batteryArchitectureCopy = struct {
 // TestBatteryVerbatim diffs the battery texts in code against the
 // architecture §5bis tables, character for character.
 func TestBatteryVerbatim(t *testing.T) {
-	for _, h := range hazards {
-		if got := batteryArchitectureCopy.hazards[h.id]; got != h.criterion {
-			t.Errorf("hazard %q drifted from architecture §5bis:\n code: %q\n arch: %q", h.id, h.criterion, got)
+	for _, h := range systemone.Hazards {
+		if got := batteryArchitectureCopy.hazards[h.ID]; got != h.Criterion {
+			t.Errorf("hazard %q drifted from architecture §5bis:\n code: %q\n arch: %q", h.ID, h.Criterion, got)
 		}
 	}
-	if len(batteryArchitectureCopy.hazards) != len(hazards) {
-		t.Errorf("hazard count %d != architecture's %d", len(hazards), len(batteryArchitectureCopy.hazards))
+	if len(batteryArchitectureCopy.hazards) != len(systemone.Hazards) {
+		t.Errorf("hazard count %d != architecture's %d", len(systemone.Hazards), len(batteryArchitectureCopy.hazards))
 	}
 	for i, want := range batteryArchitectureCopy.severity {
-		if i >= len(severityLegend) {
-			t.Fatalf("the architecture legend has %d lines, code has %d", len(batteryArchitectureCopy.severity), len(severityLegend))
+		if i >= len(systemone.SeverityLegend) {
+			t.Fatalf("the architecture legend has %d lines, code has %d", len(batteryArchitectureCopy.severity), len(systemone.SeverityLegend))
 		}
-		if severityLegend[i] != want {
-			t.Errorf("severity legend[%d] drifted:\n code: %q\n arch: %q", i, severityLegend[i], want)
+		if systemone.SeverityLegend[i] != want {
+			t.Errorf("severity legend[%d] drifted:\n code: %q\n arch: %q", i, systemone.SeverityLegend[i], want)
 		}
 	}
-	if len(severityLegend) != len(batteryArchitectureCopy.severity) {
-		t.Errorf("severity legend lengths differ: code %d, architecture %d", len(severityLegend), len(batteryArchitectureCopy.severity))
+	if len(systemone.SeverityLegend) != len(batteryArchitectureCopy.severity) {
+		t.Errorf("severity legend lengths differ: code %d, architecture %d", len(systemone.SeverityLegend), len(batteryArchitectureCopy.severity))
 	}
 }

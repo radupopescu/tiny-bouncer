@@ -97,7 +97,7 @@ Decider checkpoint.
 | T15 | Cross-backend comparison (`eval --against`) | T14 | — | done (T15-compare) | 850ff2f |
 | T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | done (T16-live) | f43eeba |
 | T17 | Rename project to tiny-bouncer | T16 | — | done (T17-rename) | e44cf4b |
-| T18 | Extract the System One judgment into a shared package | T17 | — | in-progress (T18-systemone) | — |
+| T18 | Extract the System One judgment into a shared package | T17 | — | done (T18-systemone) | — |
 | T19 | `decider` backend (Strands Decider 2B) | T18 | — | pending | — |
 | T20 | Live decider calibration + comparison row **(needs the decider server)** | T19 | — | pending | — |
 
@@ -863,11 +863,11 @@ auth, environment and registration), `doc/architecture.md` §5bis wording, `doc/
 
 **Acceptance criteria**:
 
-- [ ] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
-- [ ] `make ci` green
-- [ ] The verbatim-battery assertion against architecture §5bis still runs, once
-- [ ] Jev battery/route/client/backend tests pass unchanged apart from package qualification
-- [ ] Queue row done
+- [x] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
+- [x] `make ci` green
+- [x] The verbatim-battery assertion against architecture §5bis still runs, once
+- [x] Jev battery/route/client/backend tests pass unchanged apart from package qualification
+- [x] Queue row done
 
 **Out of scope**: adding the `decider` backend (T19); any change to the battery text,
 threshold values, policy id or transport behaviour.

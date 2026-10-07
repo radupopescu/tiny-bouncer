@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"tinybouncer/internal/backend/systemone"
 )
 
 // Error taxonomy for the Jev transport. Every failure mode maps to one typed
@@ -12,10 +14,10 @@ import (
 // matching. All carry a one-line human message.
 
 // ConfigError reports missing or invalid configuration (e.g. no API key).
-// Non-retryable by construction.
-type ConfigError struct{ Message string }
-
-func (e *ConfigError) Error() string { return e.Message }
+// Non-retryable by construction. It is the shared System One configuration
+// error, re-exported so transport and judgment configuration errors have one
+// identity (errors.As reaches it through either name).
+type ConfigError = systemone.ConfigError
 
 // AuthError is a 401: the API key is missing, malformed, or rejected.
 // Never retried.

@@ -1,7 +1,10 @@
-package jev
+package systemone
 
-// Wire types mirroring the TypeSafe System One API, `POST /v1/systemone`.
-// Transport only: the judgment battery and verdict mapping live in T06.
+// Wire types mirroring the System One API, `POST /v1/systemone`. Shared by
+// every system-one backend: the Jev transport sends them to the TypeSafe
+// endpoint, the decider transport to a local Strands Decider server.
+// Transport only: the judgment battery and verdict mapping live in
+// battery.go, route.go and map.go.
 
 import (
 	"encoding/json"
@@ -36,7 +39,7 @@ func (q Question) MarshalJSON() ([]byte, error) {
 	case "score":
 		m["criteria"] = q.Score
 	default:
-		return nil, fmt.Errorf("jev: unknown question type %q", q.Type)
+		return nil, fmt.Errorf("systemone: unknown question type %q", q.Type)
 	}
 	return json.Marshal(m)
 }
@@ -66,7 +69,7 @@ func (q *Question) UnmarshalJSON(data []byte) error {
 	case "score":
 		return json.Unmarshal(wire.Criteria, &q.Score)
 	default:
-		return fmt.Errorf("jev: unknown question type %q", wire.Type)
+		return fmt.Errorf("systemone: unknown question type %q", wire.Type)
 	}
 }
 
