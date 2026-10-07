@@ -91,6 +91,7 @@ on-device model.
 | T14 | API backend (OpenAI-compatible) + AFM backend | T01 | — | done (T14-api-afm) | 287828b |
 | T15 | Cross-backend comparison (`eval --against`) | T14 | — | done (T15-compare) | 850ff2f |
 | T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | done (T16-live) | f43eeba |
+| T17 | Rename project to tiny-bouncer | T16 | — | in-progress (T17-rename) | — |
 
 ---
 
@@ -786,6 +787,44 @@ model (`fm available` exit 0).
 - [x] `reports/gates-api.json` / `reports/gates-afm.json` written or documented
       comparison-only decisions
 - [x] Architecture §5quater/§7 updated with observed facts; queue row done
+
+## T17 — Rename project to tiny-bouncer
+
+**Goal**: rename every occurrence of the former project name to the `tiny-bouncer`
+identity, as a clean break with no aliases: display name `Tiny Bouncer`, kebab form
+`tiny-bouncer`, Go module/binary identifier `tinybouncer`, and environment prefix
+`TINY_BOUNCER_`.
+
+**Files**: every tracked file that contains the former name — Go sources and imports,
+`go.mod`, `Makefile`, `.gitignore`, `.github/workflows/ci.yml`, `README.md`, `AGENTS.md`,
+`doc/architecture.md`, `doc/plan.md`, `data/*.json`, `reports/*`, and the OpenCode
+plugin that moves to `opencode/plugins/tiny-bouncer/`.
+
+**Requirements**:
+
+- Replace every case and separator variant of the former name consistently: the
+  display form, the kebab form, the Go identifier form, the environment-prefix form,
+  and the upper-case token form.
+- After replacement, move the CLI command directory to `cmd/tinybouncer` and the
+  plugin directory to `opencode/plugins/tiny-bouncer` (via `git mv`).
+- `go.mod` module path and every internal import become `tinybouncer/...`.
+- Cache directory becomes `<UserCacheDir>/tiny-bouncer/v1`.
+- Plugin package name becomes `tiny-bouncer-plugin`.
+- Clean break: the former environment prefix and cache directory are no longer
+  honoured.
+- Rename the checkout directory to `tiny-bouncer.git` and point the `origin` remote at
+  the new repository URL.
+
+**Acceptance criteria**:
+
+- [ ] No occurrence of the former name remains in any tracked file (including this plan
+      and the historical reports)
+- [ ] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
+- [ ] `make ci` green
+- [ ] plugin `npm run typecheck` and `npm run test` green
+- [ ] checkout directory and `origin` remote updated
+
+**Out of scope**: behaviour changes; backwards-compatible aliases for the former names.
 
 ---
 
