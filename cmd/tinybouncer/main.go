@@ -22,9 +22,10 @@ import (
 	"strings"
 
 	"tinybouncer/internal/backend"
-	_ "tinybouncer/internal/backend/chat" // register the api and afm backends
-	_ "tinybouncer/internal/backend/jev"  // register the live backend (T07: both backends built in)
-	_ "tinybouncer/internal/backend/mock" // register the offline backend
+	_ "tinybouncer/internal/backend/chat"    // register the api and afm backends
+	_ "tinybouncer/internal/backend/decider" // register the local Strands Decider backend (optional)
+	_ "tinybouncer/internal/backend/jev"     // register the live backend (T07: both backends built in)
+	_ "tinybouncer/internal/backend/mock"    // register the offline backend
 	"tinybouncer/internal/dispatch"
 )
 
@@ -83,7 +84,7 @@ eval flags:
                      from <reports>/gates.json when the file exists
   --against <name>   versus the most recent report of another backend; writes a
                      compare report and prefers <reports>/gates-<name>.json
-  --sweep <variants> semicolon-separated TINY_BOUNCER_JEV_THRESHOLDS variants (jev only)
+  --sweep <variants> semicolon-separated threshold variants for the selected backend
   --bench-spawn      time empty-input spawns of this binary (mean, p95)
 
 doctor flags:

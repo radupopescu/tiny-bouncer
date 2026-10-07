@@ -7,6 +7,7 @@ package main_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -263,5 +264,66 @@ func TestDoctorAFM(t *testing.T) {
 	rows = parseDoctorRows(t, stdout)
 	if len(rows) != 1 || rows[0].OK || !strings.Contains(rows[0].Error, "modelNotReady") {
 		t.Fatalf("rows = %+v; want one unhealthy afm row naming modelNotReady", rows)
+	}
+}
+
+// TestDoctorDecider exercises the decider backend's doctor path against
+// httptest: a /health 200 is healthy and names the served checkpoint; a 500 is
+// unhealthy; unconfigured, the optional backend is omitted from the default
+// report but an explicit --backend still surfaces it. No network beyond
+// httptest.
+func TestDoctorDecider(t *testing.T) {
+	healthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health" {
+			http.NotFound(w, r)
+			return
+		}
+		fmt.Fprint(w, `{"status":"ok","model":"strands-decider-2B-hobson-v21","device":"mps"}`)
+	}))
+	defer healthy.Close()
+
+	env := []string{"TINY_BOUNCER_DECIDER_BASE_URL=" + healthy.URL}
+	code, stdout, stderr := runBinary(t, checkBin, "", env, "doctor", "--backend", "decider")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	rows := parseDoctorRows(t, stdout)
+	if len(rows) != 1 || rows[0].Backend != "decider" || !rows[0].OK {
+		t.Fatalf("rows = %+v; want exactly one ok decider row", rows)
+	}
+	if rows[0].Model != "strands-decider-2B-hobson-v21" || rows[0].PolicyVersion != "jev-policy-1.0" ||
+		rows[0].ThresholdsVersion != "dtv1" {
+		t.Errorf("decider facts = %+v; want the health model, the shared policy and dtv1", rows[0])
+	}
+
+	// Unconfigured: omitted from the default report, reported explicitly.
+	code, stdout, _ = runBinary(t, checkBin, "", []string{}, "doctor")
+	rows = parseDoctorRows(t, stdout)
+	for _, r := range rows {
+		if r.Backend == "decider" {
+			t.Errorf("an unconfigured decider must be omitted from the default report: %+v", r)
+		}
+	}
+	code, stdout, _ = runBinary(t, checkBin, "", []string{}, "doctor", "--backend", "decider")
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1 for an unconfigured backend", code)
+	}
+	rows = parseDoctorRows(t, stdout)
+	if len(rows) != 1 || rows[0].OK || !strings.Contains(rows[0].Error, "TINY_BOUNCER_DECIDER_BASE_URL") {
+		t.Fatalf("rows = %+v; want one unhealthy row naming the variable", rows)
+	}
+
+	broken := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer broken.Close()
+	code, stdout, _ = runBinary(t, checkBin, "",
+		[]string{"TINY_BOUNCER_DECIDER_BASE_URL=" + broken.URL}, "doctor", "--backend", "decider")
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1 for a 500 health check", code)
+	}
+	rows = parseDoctorRows(t, stdout)
+	if len(rows) != 1 || rows[0].OK || !strings.Contains(rows[0].Error, "500") {
+		t.Fatalf("rows = %+v; want one unhealthy row naming the status", rows)
 	}
 }

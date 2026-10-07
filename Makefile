@@ -1,6 +1,6 @@
 BINARY := bin/tinybouncer
 
-.PHONY: build test fmt vet clean eval-mock eval-live eval-api eval-afm doctor-mock ci
+.PHONY: build test fmt vet clean eval-mock eval-live eval-api eval-afm eval-decider doctor-mock ci
 
 # `cmd/tinybouncer` lands in T03; until then `make build` compiles the tree only.
 build:
@@ -56,6 +56,16 @@ eval-afm: build
 		echo "eval-afm: Apple Foundation Models not available (fm available failed) — skipping"; \
 	else \
 		$(BINARY) eval --backend afm --compare; \
+	fi
+
+# `eval-decider` runs the eval harness against a locally served Strands Decider
+# checkpoint. It needs an endpoint (e.g. `strands-decider serve … --port 8000`);
+# without TINY_BOUNCER_DECIDER_BASE_URL it prints a warning and skips safely.
+eval-decider: build
+	@if [ -z "$$TINY_BOUNCER_DECIDER_BASE_URL" ]; then \
+		echo "eval-decider: no TINY_BOUNCER_DECIDER_BASE_URL set — skipping (opt-in live run)"; \
+	else \
+		$(BINARY) eval --backend decider --compare; \
 	fi
 
 # Full offline verification: formatting, vet, build, tests, eval harness over the

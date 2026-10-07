@@ -104,6 +104,12 @@ func runDoctor(args []string, _ io.Reader, stdout, stderr io.Writer) int {
 		err = b.HealthCheck(ctx)
 		cancel()
 		if err == nil {
+			// A successful health check may learn facts the backend could not
+			// know before it (the decider reports the checkpoint it serves from
+			// GET /health), so re-read the identity before reporting it.
+			info = b.Info()
+			row.Model, row.PolicyVersion, row.ThresholdsVersion =
+				info.Model, info.PolicyVersion, info.ThresholdsVersion
 			row.OK = true
 			fmt.Fprintf(stderr, "tinybouncer doctor: %s: ok (model %s, policy %s, thresholds %s)\n",
 				name, row.Model, row.PolicyVersion, row.ThresholdsVersion)

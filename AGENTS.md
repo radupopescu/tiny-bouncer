@@ -34,7 +34,10 @@ The full protocol lives in `doc/plan.md` §1; the essentials:
 ## Hard project conventions
 
 - **Go only where Go is expected** (`tinybouncer` binary, `internal/…`); TypeScript only in
-  `opencode/plugins/tiny-bouncer/`. No other languages.
+  `opencode/plugins/tiny-bouncer/`. No other languages. Backends may nevertheless be *served*
+  by external processes in other languages (LM Studio for `api`, `fm` for `afm`, the Strands
+  Decider Python server for `decider`): run such a server out of tree and talk to it over its
+  documented HTTP or CLI contract. No non-Go code is added to the repository.
 - **Zero third-party dependencies.** Go: stdlib only, pinned `go 1.23` in `go.mod`
   (toolchain 1.27.x is fine to compile with). Plugin: `@opencode/plugin` types and the
   Node stdlib only.

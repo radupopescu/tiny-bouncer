@@ -64,6 +64,17 @@ type UsageTracker interface {
 	LastUsage() Usage
 }
 
+// Sweepable is an optional Backend extension for backends whose routing
+// thresholds can be varied through an environment variable named by
+// SweepEnv. `eval --sweep` type-asserts to it, sets the variable to each
+// variant, and rebuilds the backend through its factory; a backend without it
+// cannot be swept.
+type Sweepable interface {
+	// SweepEnv names the environment variable holding the threshold override
+	// (a comma-separated list of key=value pairs).
+	SweepEnv() string
+}
+
 // Config carries backend-specific configuration values, populated from
 // environment variables named by each backend package (e.g. TINY_BOUNCER_JEV_*).
 type Config struct {

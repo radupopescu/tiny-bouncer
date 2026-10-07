@@ -3,6 +3,8 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -351,5 +353,48 @@ func TestCheckBinaryCacheFlagsOverride(t *testing.T) {
 	code, _, stderr = runBinary(t, checkBin, stdin, env, "check", "--backend", "mock", "--cache", "--no-cache")
 	if code != 1 || stderr == "" {
 		t.Fatalf("conflicting cache flags: exit=%d stderr=%q, want exit 1", code, stderr)
+	}
+}
+
+// TestCheckBinaryDecider: the decider backend returns the output contract over
+// a canned System One response. httptest only; the endpoint comes from the
+// backend's required base URL.
+func TestCheckBinaryDecider(t *testing.T) {
+	body := quietBatteryBody(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/systemone" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+
+	env := []string{"TINY_BOUNCER_DECIDER_BASE_URL=" + srv.URL}
+	code, stdout, stderr := runBinary(t, checkBin, fixture(t, "happy.json"), env, "check", "--backend", "decider")
+	if code != 0 {
+		t.Fatalf("exit = %d, stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	if stderr != "" {
+		t.Fatalf("stdout-only contract violated; stderr = %q", stderr)
+	}
+	c := parse(t, stdout)
+	if len(c.Results) != 2 {
+		t.Fatalf("results = %d, want 2 index-aligned rows", len(c.Results))
+	}
+	for i, r := range c.Results {
+		if r.Verdict != "allow" {
+			t.Errorf("result %d = %q, want allow (quiet battery)", i, r.Verdict)
+		}
+		if r.Categories == nil || r.Reason == "" {
+			t.Errorf("result %d must carry categories [] and a reason: %+v", i, r)
+		}
+	}
+	if c.Meta.Backend != "decider" || c.Meta.BackendModel != "strands-decider-2B-hobson-v21" ||
+		c.Meta.PolicyVersion != "jev-policy-1.0" || c.Meta.ThresholdsVersion != "dtv1" {
+		t.Errorf("meta = %+v, want the decider's resolved facts", c.Meta)
+	}
+	if c.Aggregate.Effect != "allow" {
+		t.Errorf("aggregate = %q, want allow", c.Aggregate.Effect)
 	}
 }

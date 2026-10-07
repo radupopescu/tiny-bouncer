@@ -99,6 +99,10 @@ func (b *jevBackend) LastUsage() backend.Usage {
 
 func (b *jevBackend) Name() string { return "jev" }
 
+// SweepEnv names the threshold override variable `eval --sweep` varies
+// (backend.Sweepable).
+func (b *jevBackend) SweepEnv() string { return thresholdsEnv }
+
 // Info returns the identity facts recorded in meta. After any response has
 // resolved, Model is the response's model field; before then, the configured
 // model (TINY_BOUNCER_JEV_MODEL, default jev-latest).

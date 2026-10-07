@@ -85,7 +85,18 @@ bin/tinybouncer check --backend api <<< '{"commands":["git status","rm -rf /"]}'
 
 # macOS 27+ with Apple Intelligence enabled (the `fm` CLI)
 bin/tinybouncer check --backend afm <<< '{"commands":["git status","rm -rf /"]}'
+
+# Strands Decider 2B served locally (the same System One battery as Jev)
+uv venv --python 3.14 ~/.venvs/decider && uv pip install --python ~/.venvs/decider/bin/python strands-decider
+uv run --python ~/.venvs/decider/bin/python strands-decider serve \
+  StrandsAgents/strands-decider-2B-hobson-v21 --device mps --port 8000 --strict-window
+export TINY_BOUNCER_DECIDER_BASE_URL=http://127.0.0.1:8000
+bin/tinybouncer check --backend decider <<< '{"commands":["git status","rm -rf /"]}'
 ```
+
+The `decider` server is an external Python process installed out of tree; the
+repository stays Go and TypeScript. Its thresholds are an uncalibrated placeholder
+(`dtv1`, seeded from Jev's `tv2`) until the calibration task runs.
 
 Select one for the plugin by setting `TINY_BOUNCER_BACKEND` (e.g. `api`) or the plugin's
 `backend` option.
@@ -93,9 +104,9 @@ Select one for the plugin by setting `TINY_BOUNCER_BACKEND` (e.g. `api`) or the 
 ## CLI reference
 
 ```sh
-tinybouncer check [--backend jev|mock|api|afm] [--cache|--no-cache] < commands.json
-tinybouncer eval  --backend jev|api|afm [--compare] [--against <backend>] [--sweep]   # labelled-corpus evaluation
-tinybouncer doctor [--backend jev|mock|api|afm]                 # credentials/endpoint health
+tinybouncer check [--backend jev|mock|api|afm|decider] [--cache|--no-cache] < commands.json
+tinybouncer eval  --backend jev|api|afm|decider [--compare] [--against <backend>] [--sweep]   # labelled-corpus evaluation
+tinybouncer doctor [--backend jev|mock|api|afm|decider]                 # credentials/endpoint health
 ```
 
 ### `check` output contract
@@ -188,6 +199,16 @@ FAILED by design — the comparison-only decision, not a regression.
 The committed cross-backend comparison (Jev, `api`, `afm` and the mock floor) is
 summarised in [`reports/summary-backends-2026-10-06.md`](reports/summary-backends-2026-10-06.md).
 
+### Decider (wired, not yet measured)
+
+The `decider` backend screens commands with a locally served Strands Decider 2B
+checkpoint, asking the identical hazard battery and severity question as Jev and routing
+the answers with the same arithmetic (`doc/architecture.md` §5quinquies). It is
+**comparison-only pending measurement**: its thresholds are seeded from Jev's `tv2` and
+remain uncalibrated until the live calibration task sweeps them, so no claim about its
+accuracy or safety is made here. Its verdict categories are the same hazard ids Jev
+reports, so the comparison will be per-record comparable.
+
 ## Backends
 
 | Backend | Network | Purpose |
@@ -195,13 +216,15 @@ summarised in [`reports/summary-backends-2026-10-06.md`](reports/summary-backend
 | `jev` (default) | TypeSafe System One API | Real judgments: hazard probabilities + severity, thresholds in code |
 | `api` | OpenAI-compatible endpoint (e.g. LM Studio) | Chat model: one schema-constrained completion per command (Gemma-4-E2B for now) |
 | `afm` | on-device (Apple Foundation Models) | Chat model through the `fm` CLI; macOS 27 + Apple Silicon |
+| `decider` | local Strands Decider server (e.g. `127.0.0.1:8000`) | Decision model: the same System One battery as Jev, judged locally |
 | `mock` | none | Deterministic rules for offline tests and the eval floor |
 
-`api` and `afm` are **optional**: `doctor`'s default report omits one whose endpoint
-(`TINY_BOUNCER_API_BASE_URL`) or CLI (`fm`) is not configured, so an unused optional
-backend cannot fail an otherwise-healthy run; `doctor --backend <id>` still reports it.
-Both are currently **comparison-only** (see the calibration section above): neither
-meets the hard `FNR = 0` safety gate, so the default backend stays `jev`.
+`api`, `afm` and `decider` are **optional**: `doctor`'s default report omits one whose
+endpoint (`TINY_BOUNCER_API_BASE_URL`, `TINY_BOUNCER_DECIDER_BASE_URL`) or CLI (`fm`) is
+not configured, so an unused optional backend cannot fail an otherwise-healthy run;
+`doctor --backend <id>` still reports it. `api` and `afm` are **comparison-only** (see the
+calibration section above): neither meets the hard `FNR = 0` safety gate, so the default
+backend stays `jev`. `decider` is comparison-only pending measurement.
 
 Adding a backend means one package under `internal/backend/<name>` implementing the
 three obligations in `doc/architecture.md` §5.2 — no changes to the CLI contract, the
@@ -250,6 +273,12 @@ sha256 hash of the command batch, never the command text.
 | `TINY_BOUNCER_AFM_EXECUTABLE` | `fm` CLI path (`afm` backend) | `fm` |
 | `TINY_BOUNCER_CHAT_CONCURRENCY` | chat backend fan-out width | `1` |
 | `TINY_BOUNCER_CHAT_TIMEOUT_MS` | per-command chat timeout (ms) | `30000` |
+| `TINY_BOUNCER_DECIDER_BASE_URL` | Strands Decider server (`decider` backend) | required for `decider` |
+| `TINY_BOUNCER_DECIDER_MODEL` | model alias sent to the decider | `strands-decider-latest` |
+| `TINY_BOUNCER_DECIDER_TIMEOUT_MS` | per-request decider timeout (ms) | `30000` |
+| `TINY_BOUNCER_DECIDER_RETRIES` | decider transport retry attempts | `3` |
+| `TINY_BOUNCER_DECIDER_CONCURRENCY` | decider fan-out width | `1` |
+| `TINY_BOUNCER_DECIDER_THRESHOLDS` | decider threshold sweep override | — |
 
 ### Manual TUI verification checklist
 
@@ -285,10 +314,10 @@ confirm each step:
   record a command hash, not the text.
 - TypeSafe documents Jev as not trained on customer requests — check their DPA/ZDR
   posture when wiring production keys (see `doc/architecture.md` §9).
-- With `api` and `afm`, commands normally stay on the machine: `afm` runs entirely
-  on-device, and the `api` endpoint is typically a local server (LM Studio, Ollama).
-  A remote API endpoint carries the same "raw command text is sent to the judge"
-  caveat as Jev.
+- With `api`, `afm` and `decider`, commands normally stay on the machine: `afm` runs
+  entirely on-device, the `api` endpoint is typically a local server (LM Studio, Ollama),
+  and the decider server is a local process. A remote API endpoint carries the same "raw
+  command text is sent to the judge" caveat as Jev.
 
 ## Troubleshooting
 
@@ -325,4 +354,7 @@ confirm each step:
   model (`fm available`). Either prints a warning and skips safely when unavailable.
   Both backends are comparison-only (no per-backend gates file), so these targets
   apply the shared Jev gates and report FAILED by design.
+- `make eval-decider` — opt-in live run against a locally served Strands Decider
+  checkpoint (`eval --backend decider --compare`); needs
+  `TINY_BOUNCER_DECIDER_BASE_URL` and skips safely without it.
 - Plugin: `cd opencode/plugins/tiny-bouncer && npm run typecheck && npm run test`.

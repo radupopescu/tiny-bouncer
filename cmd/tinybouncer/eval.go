@@ -25,10 +25,6 @@ import (
 // a failing calibration from a broken invocation.
 const gatesExit = 3
 
-// thresholdsEnv is the jev sweep-override variable (T06): each --sweep
-// variant is one full value of this variable for the corpus run.
-const thresholdsEnv = "TINY_BOUNCER_JEV_THRESHOLDS"
-
 // factoryFor resolves a backend factory or fails with a diagnostic.
 func factoryFor(name string) (backend.Backend, error) {
 	factory, ok := backend.Lookup(name)
@@ -57,7 +53,7 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	gatesFlag := fs.String("gates", "", "gates file to apply (with --compare, default <reports>/gates.json)")
 	compare := fs.Bool("compare", false, "compare against the most recent same-backend history line")
 	against := fs.String("against", "", "compare this run against the most recent report of another backend")
-	sweep := fs.String("sweep", "", "semicolon-separated TINY_BOUNCER_JEV_THRESHOLDS variants (each comma-separated key=value pairs; jev only)")
+	sweep := fs.String("sweep", "", "semicolon-separated threshold-override variants (each comma-separated key=value pairs; the variable is the selected backend's, see backend.Sweepable)")
 	bench := fs.Bool("bench-spawn", false, "also benchmark empty-input spawns of this binary (mean and p95)")
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -211,14 +207,17 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 }
 
 // runSweep evaluates each --sweep variant as a normal run (report + history
-// line each), then prints the operating-point summary table. Only the jev
-// backend supports the TINY_BOUNCER_JEV_THRESHOLDS override; any other backend
-// fails with a clear error.
+// line each), then prints the operating-point summary table. A backend opts in
+// by implementing backend.Sweepable, which names the environment variable
+// holding its threshold override; a backend without it fails with a clear
+// error.
 func runSweep(b backend.Backend, info backend.Info, corpusFlag, reportsFlag, sweepSpec string, stdout, stderr io.Writer) int {
-	if info.Name != "jev" {
-		fmt.Fprintf(stderr, "tinybouncer eval: backend %q has no threshold override support; --sweep requires --backend jev\n", info.Name)
+	sweepable, ok := b.(backend.Sweepable)
+	if !ok {
+		fmt.Fprintf(stderr, "tinybouncer eval: backend %q has no threshold override support; --sweep is unavailable for it\n", info.Name)
 		return 1
 	}
+	sweepEnv := sweepable.SweepEnv()
 	var variants []string
 	for _, v := range strings.Split(sweepSpec, ";") {
 		if strings.TrimSpace(v) != "" {
@@ -232,12 +231,12 @@ func runSweep(b backend.Backend, info backend.Info, corpusFlag, reportsFlag, swe
 		return 1
 	}
 
-	original, hadOriginal := os.LookupEnv(thresholdsEnv)
+	original, hadOriginal := os.LookupEnv(sweepEnv)
 	defer func() {
 		if hadOriginal {
-			os.Setenv(thresholdsEnv, original)
+			os.Setenv(sweepEnv, original)
 		} else {
-			os.Unsetenv(thresholdsEnv)
+			os.Unsetenv(sweepEnv)
 		}
 	}()
 
@@ -247,11 +246,11 @@ func runSweep(b backend.Backend, info backend.Info, corpusFlag, reportsFlag, swe
 	}
 	var rows []row
 	for _, v := range variants {
-		if err := os.Setenv(thresholdsEnv, v); err != nil {
-			fmt.Fprintf(stderr, "tinybouncer eval: set %s: %v\n", thresholdsEnv, err)
+		if err := os.Setenv(sweepEnv, v); err != nil {
+			fmt.Fprintf(stderr, "tinybouncer eval: set %s: %v\n", sweepEnv, err)
 			return 2
 		}
-		vb, err := factoryFor("jev")
+		vb, err := factoryFor(info.Name)
 		if err != nil {
 			fmt.Fprintf(stderr, "tinybouncer eval: --sweep variant %q: %v\n", v, err)
 			return 1

@@ -98,7 +98,7 @@ Decider checkpoint.
 | T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | done (T16-live) | f43eeba |
 | T17 | Rename project to tiny-bouncer | T16 | — | done (T17-rename) | e44cf4b |
 | T18 | Extract the System One judgment into a shared package | T17 | — | done (T18-systemone) | 0498f11 |
-| T19 | `decider` backend (Strands Decider 2B) | T18 | — | in-progress (T19-decider) | — |
+| T19 | `decider` backend (Strands Decider 2B) | T18 | — | done (T19-decider) | — |
 | T20 | Live decider calibration + comparison row **(needs the decider server)** | T19 | — | pending | — |
 
 ---
@@ -884,9 +884,12 @@ this repository — the server is an external process, as LM Studio is for `api`
 **Files**: `internal/backend/decider/{backend.go,client.go,errors.go,*_test.go}`,
 `internal/backend/backend.go` (optional sweep interface), `internal/backend/systemone/route.go`
 and `internal/backend/jev/route.go` (implement it), `cmd/tinybouncer/main.go` (blank import),
-`cmd/tinybouncer/eval.go` (generic sweep), `cmd/tinybouncer/doctor_test.go`, `Makefile`
-(`eval-decider`), `README.md`, `doc/architecture.md` (§5ter, §6, §7, §10), `AGENTS.md`
-(one line on externally served backends), `doc/plan.md` row.
+`cmd/tinybouncer/eval.go` (generic sweep), `cmd/tinybouncer/doctor.go` (re-read the
+identity after a successful health check), `cmd/tinybouncer/doctor_test.go`,
+`cmd/tinybouncer/main_test.go` + `cmd/tinybouncer/eval_test.go` (contract and sweep
+subprocess tests), `Makefile` (`eval-decider`), `README.md`, `doc/architecture.md`
+(§5quinquies, §6, §7, §10), `AGENTS.md` (one line on externally served backends),
+`doc/plan.md` row.
 
 **Upstream facts** (read from the Strands Decider repository, not the blog):
 `POST /v1/systemone` with `{state, model, questions}`; `noul` criteria `{true,false}`;
@@ -926,21 +929,21 @@ errors; localhost binding, no auth, a single uvicorn worker. The server document
 
 **Acceptance criteria**:
 
-- [ ] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
-- [ ] httptest fixtures cover a well-formed nine-answer battery for each route branch;
+- [x] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
+- [x] httptest fixtures cover a well-formed nine-answer battery for each route branch;
       `noul = 0.0` distinguished from an absent scalar; a missing hazard answer; a score
       without level probabilities; an unknown answer type; `500`; `422`; a timeout; and a
       refused connection — each mapping to the expected verdict, with failures as `ask`
-- [ ] `TINY_BOUNCER_DECIDER_BASE_URL` unset → typed config error; the default doctor report
+- [x] `TINY_BOUNCER_DECIDER_BASE_URL` unset → typed config error; the default doctor report
       omits `decider`; `doctor --backend decider` surfaces the error
-- [ ] `doctor --backend decider` against an httptest `/health` reports ok, with the model
+- [x] `doctor --backend decider` against an httptest `/health` reports ok, with the model
       taken from the health payload
-- [ ] `check --backend decider` against a canned server returns the output contract
-- [ ] `--sweep` accepted for `decider` and unchanged for `jev`
-- [ ] `make ci` green; `make eval-decider` skips safely with a clear message when
+- [x] `check --backend decider` against a canned server returns the output contract
+- [x] `--sweep` accepted for `decider` and unchanged for `jev`
+- [x] `make ci` green; `make eval-decider` skips safely with a clear message when
       `TINY_BOUNCER_DECIDER_BASE_URL` is unset
-- [ ] README backend table, quickstart, environment table and CLI reference updated;
-      architecture §5ter/§6/§7/§10 updated; queue row done
+- [x] README backend table, quickstart, environment table and CLI reference updated;
+      architecture §5quinquies/§6/§7/§10 updated; queue row done
 
 **Out of scope**: live measurement and calibration (T20); any change to the plugin (its
 scoped `doctor --backend <id>` already covers a new backend).
@@ -972,7 +975,7 @@ ignored), `reports/eval-<ts>-decider-*.json`,
 `reports/compare-<ts>-decider-vs-{jev,api,afm,mock}.json`, `reports/history.jsonl`,
 `reports/summary-backends-<date>.md` (new; the 2026-10-06 file remains the T16 record),
 `reports/gates-decider.json` only if the gates are met, `README.md`,
-`doc/architecture.md` §5ter/§7, `doc/plan.md` row.
+`doc/architecture.md` §5quinquies/§7, `doc/plan.md` row.
 
 **Preregistered selection rule** (fixed before the sweep, so the choice is not fitted to
 265 records after the fact): prefer any variant with `fnr = 0`; if none, minimise FNR, then

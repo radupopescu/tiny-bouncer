@@ -42,8 +42,10 @@ tiny-bouncer.git/
   cmd/tinybouncer/                # CLI: check | eval | doctor
   internal/core/                  # Effect, Verdict, Command contracts
   internal/backend/               # Backend interface, registry, Config
+  internal/backend/systemone/     # shared judgment: battery, route, mapping (all system-one backends)
   internal/backend/mock/          # deterministic offline backend (ships in v1)
-  internal/backend/jev/           # Jev adapter: client, battery, mapping
+  internal/backend/jev/           # Jev adapter: client, credentials, operating point
+  internal/backend/decider/       # Strands Decider adapter: client, operating point (optional)
   internal/policy/                # threshold application, aggregation (generic)
   internal/dispatch/              # normalisation, cache, batch orchestration
   internal/eval/                  # corpus evaluation, metrics, reports
@@ -357,8 +359,55 @@ The full comparison — Jev, `api`, `afm` and the mock floor, with per-record er
 and the live compare reports — is written up in
 `reports/summary-backends-2026-10-06.md`.
 
+The `decider` backend (§5quinquies) joined as a fourth judgment backend in task T19,
+asking the identical battery and routing it identically, so its row isolates the model;
+its thresholds are an uncalibrated placeholder (`dtv1`) until task T20 sweeps them. Like
+Jev it implements `backend.Sweepable`, so `eval --backend decider --sweep` uses the same
+code path.
+
 Privacy: AFM runs on-device and the API endpoint is normally local, so commands
 need not leave the machine.
+
+## 5quinquies. Decider backend (`internal/backend/decider`)
+
+A local **system-one** model — Strands Decider 2B (Apache-2.0, checkpoint
+`StrandsAgents/strands-decider-2B-hobson-v21`) — behind the same System One contract as
+Jev, so it asks the identical §5bis battery and routes it with the same arithmetic
+(`internal/backend/systemone`, §5.2). The comparison therefore isolates the model rather
+than the policy. It is expected to be **comparison-only**: a 2B decision model is
+unlikely to hold `FNR = 0` over the dangerous records (measured in task T20).
+
+### Transport
+
+- The server is an external process and is **not vendored into this repository**:
+  `uv` installs the Python package out of tree, and
+  `strands-decider serve <checkpoint> --device mps --strict-window --port 8000` serves
+  it. No Python code is added here.
+- `POST {base}/v1/systemone` (no authentication) and `GET /health` for the health check.
+  The canonical endpoint is `http://127.0.0.1:8000`, but the base URL is **required**
+  configuration (`TINY_BOUNCER_DECIDER_BASE_URL`), so an unconfigured backend is omitted
+  from doctor's default report rather than failing it.
+- Per-request timeout `TINY_BOUNCER_DECIDER_TIMEOUT_MS` (default 30 s), transport retries
+  `TINY_BOUNCER_DECIDER_RETRIES` (default 3, transient statuses 429/502/503/504/529 only),
+  and fan-out `TINY_BOUNCER_DECIDER_CONCURRENCY` (default **1**: the server is a single
+  uvicorn worker and its behaviour under concurrent requests is unverified).
+- `GET /health` returns the model, checkpoint, device and calibration temperature; the
+  backend records the model, so `doctor` names the served checkpoint before any
+  classification has run.
+- The request sends the alias `strands-decider-latest` by default
+  (`TINY_BOUNCER_DECIDER_MODEL`); the server resolves the checkpoint it serves, and the
+  response `model` field is what reports record.
+
+### Route (thresholds `dtv1`; constants in code, sweepable)
+
+The gates start from Jev's calibrated `tv2` values — the battery and the route arithmetic
+are identical — but the decider's probabilities are not Jev's, so these values are an
+**uncalibrated placeholder** until task T20 sweeps them with
+`TINY_BOUNCER_DECIDER_THRESHOLDS` (`eval --backend decider --sweep …`). T20 commits the
+calibrated values and bumps the version if they move. Because the mapping is shared, a
+verdict's `categories` are the §5bis hazard ids, directly comparable with Jev's
+per-record error lists. The backend implements `backend.Sweepable`, the same opt-in Jev
+uses, so the sweep path needs no special case.
 
 ## 6. Configuration summary
 
@@ -377,6 +426,12 @@ need not leave the machine.
 | `TINY_BOUNCER_AFM_EXECUTABLE` | `fm` CLI path for the `afm` backend | `fm` |
 | `TINY_BOUNCER_CHAT_CONCURRENCY` | chat backend fan-out width | `1` |
 | `TINY_BOUNCER_CHAT_TIMEOUT_MS` | per-command chat timeout | `30000` |
+| `TINY_BOUNCER_DECIDER_BASE_URL` | Strands Decider server for the `decider` backend | required for `decider` |
+| `TINY_BOUNCER_DECIDER_MODEL` | model alias sent to the decider | `strands-decider-latest` |
+| `TINY_BOUNCER_DECIDER_TIMEOUT_MS` | per-request decider timeout | `30000` |
+| `TINY_BOUNCER_DECIDER_RETRIES` | decider transport retries (total attempts) | `3` |
+| `TINY_BOUNCER_DECIDER_CONCURRENCY` | decider fan-out width | `1` |
+| `TINY_BOUNCER_DECIDER_THRESHOLDS` | decider threshold sweep override | — |
 
 ## 7. Tests and evaluation
 
@@ -526,6 +581,9 @@ OpenCode V2 plugin registering the `permission.evaluate` hook (plugin docs:
   fast pre-filter stage with Jev verifying the remainder (cascade).
 - **Second judgment API** — A/B testing is free: same corpus, same metrics, same
   history schema; `--backend` switches provenance, `eval --compare` reads the deltas.
+- **Local decision model** — implemented by the `decider` backend (§5quinquies): the same
+  System One contract served by a small local model instead of a hosted one, which is why
+  it reuses the battery, the route and the mapping unchanged.
 
 ## 11. Non-goals
 

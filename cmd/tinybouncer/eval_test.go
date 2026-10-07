@@ -2,6 +2,9 @@ package main_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +12,7 @@ import (
 	"time"
 
 	"tinybouncer/internal/backend"
+	"tinybouncer/internal/backend/systemone"
 	"tinybouncer/internal/eval"
 )
 
@@ -468,5 +472,76 @@ func TestEvalBinaryPerBackendGatesResolution(t *testing.T) {
 		"--reports", dir, "--gates", explicit)
 	if code != 0 || !strings.Contains(stdout, "gates: PASS") {
 		t.Fatalf("explicit gates: exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+}
+
+// quietBatteryBody is a complete allow-path System One response: every hazard
+// at zero and severity on level 0. It is built from the shared battery so the
+// fixture cannot drift from the question ids.
+func quietBatteryBody(t *testing.T) string {
+	t.Helper()
+	answers := map[string]any{}
+	for _, h := range systemone.Hazards {
+		answers[h.ID] = map[string]any{"type": "noul", "noul": 0.0}
+	}
+	sev := map[string]any{}
+	for i := 0; i <= 4; i++ {
+		p := 0.0
+		if i == 0 {
+			p = 1.0
+		}
+		sev[fmt.Sprintf("%d", i)] = p
+	}
+	answers[systemone.Severity] = map[string]any{"type": "score", "score": 0.0, "probabilities": sev}
+	b, err := json.Marshal(map[string]any{
+		"model":   "strands-decider-2B-hobson-v21",
+		"answers": answers,
+		"usage":   map[string]any{"input_tokens": 3, "output_tokens": 0},
+	})
+	if err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+	return string(b)
+}
+
+// TestEvalBinarySweepDecider: a backend that opts into backend.Sweepable is
+// swept through the same code path as Jev, using its own threshold variable
+// (T19). The mock backend stays unsupported (TestEvalBinarySweepRequiresJev).
+func TestEvalBinarySweepDecider(t *testing.T) {
+	body := quietBatteryBody(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/systemone" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	env := []string{"TINY_BOUNCER_DECIDER_BASE_URL=" + srv.URL}
+	code, stdout, stderr := runBinary(t, checkBin, "", env,
+		"eval", "--backend", "decider", "--corpus", corpusPath, "--reports", dir,
+		"--sweep", "deny_hazard=0.90;deny_hazard=0.50")
+	if code != 0 {
+		t.Fatalf("sweep on decider: exit=%d stderr=%q", code, stderr)
+	}
+	if !strings.Contains(stdout, "sweep (operating points") {
+		t.Fatalf("stdout = %q, want the sweep table", stdout)
+	}
+	for _, variant := range []string{"deny_hazard=0.90", "deny_hazard=0.50"} {
+		if !strings.Contains(stdout, variant) {
+			t.Errorf("stdout missing the %q variant row", variant)
+		}
+	}
+	hist, err := os.ReadFile(filepath.Join(dir, "history.jsonl"))
+	if err != nil {
+		t.Fatalf("history: %v", err)
+	}
+	if lines := strings.Count(strings.TrimSpace(string(hist)), "\n") + 1; lines != 2 {
+		t.Errorf("history lines = %d, want one per variant (2)", lines)
+	}
+	if !strings.Contains(string(hist), "strands-decider-2B-hobson-v21") {
+		t.Errorf("history does not record the resolved model")
 	}
 }
