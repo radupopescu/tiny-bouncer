@@ -338,6 +338,10 @@ default stays `jev`. Because no per-backend gates file exists,
 `eval --backend api|afm --compare` falls back to the shared Jev gates and reports
 FAILED by design — a record of the comparison-only decision, not a regression.
 
+The full comparison — Jev, `api`, `afm` and the mock floor, with per-record error ids
+and the live compare reports — is written up in
+`reports/summary-backends-2026-10-06.md`.
+
 Privacy: AFM runs on-device and the API endpoint is normally local, so commands
 need not leave the machine.
 

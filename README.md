@@ -185,6 +185,9 @@ usage (265 req · 79,115 in · 28,936 out), `afm` none. Because no per-backend g
 exists, `eval --backend api|afm --compare` applies the shared Jev gates and reports
 FAILED by design — the comparison-only decision, not a regression.
 
+The committed cross-backend comparison (Jev, `api`, `afm` and the mock floor) is
+summarised in [`reports/summary-backends-2026-10-06.md`](reports/summary-backends-2026-10-06.md).
+
 ## Backends
 
 | Backend | Network | Purpose |
