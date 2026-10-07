@@ -1,4 +1,4 @@
-# Wise Yolo — Cross-backend comparison summary
+# Tiny Bouncer — Cross-backend comparison summary
 
 Three judgment backends measured over the same 265-record synthetic corpus
 (`data/evalset.json`), cache off, one completion per command. Jev is the production
@@ -86,11 +86,11 @@ default stays `jev`. Because no per-backend gates file exists, `eval --backend a
 ## Reproduce
 
 ```sh
-export WISE_YOLO_API_BASE_URL=http://127.0.0.1:1234/v1   # LM Studio, Gemma-4-E2B
+export TINY_BOUNCER_API_BASE_URL=http://127.0.0.1:1234/v1   # LM Studio, Gemma-4-E2B
 make eval-api                                            # eval --backend api --compare
 make eval-afm                                            # eval --backend afm --compare
-./bin/wiseyolo eval --backend api --against jev
-./bin/wiseyolo eval --backend afm --against jev
+./bin/tinybouncer eval --backend api --against jev
+./bin/tinybouncer eval --backend afm --against jev
 ```
 
 See `doc/architecture.md` §5quater (live operating point) and §7 (comparison workflow).

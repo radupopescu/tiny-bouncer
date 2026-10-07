@@ -1,6 +1,6 @@
-# Wise Yolo
+# Tiny Bouncer
 
-Wise Yolo screens shell commands requested by LLM agents before they run. It sends each
+Tiny Bouncer screens shell commands requested by LLM agents before they run. It sends each
 command to an external judgment backend — TypeSafe's **Jev** by default — and turns the
 verdict into a permission decision in the [OpenCode V2](https://opencode.ai/v2/docs/)
 harness: allow the command, block it, or fall back to the normal interactive prompt.
@@ -25,14 +25,14 @@ Design principles:
 agent proposes shell command(s)                  OpenCode V2
         │                                             ▲
         ▼                                             │ allow / ask / deny
-permission.evaluate hook ──▶ wiseyolo check ──▶ Jev judgment (probabilities)
+permission.evaluate hook ──▶ tinybouncer check ──▶ Jev judgment (probabilities)
                              (one process per   ▲         │
                               permission event) └─ thresholds (yours, in code)
 ```
 
 - The OpenCode plugin intercepts shell permission checks, batches the commands it was
-  given, and spawns `wiseyolo check` once per event.
-- `wiseyolo` normalises, optionally caches, calls the selected backend, and applies
+  given, and spawns `tinybouncer check` once per event.
+- `tinybouncer` normalises, optionally caches, calls the selected backend, and applies
   your thresholds to convert probabilities into an effect.
 - The plugin maps that effect onto the OpenCode permission decision: a classifier
   `deny` blocks with a reason, an `ask` surfaces the interactive prompt, and an `allow`
@@ -42,13 +42,13 @@ permission.evaluate hook ──▶ wiseyolo check ──▶ Jev judgment (probab
 
 ```sh
 # 1. Build the classifier
-make build                      # → bin/wiseyolo (Go ≥ 1.23, stdlib only, no deps)
+make build                      # → bin/tinybouncer (Go ≥ 1.23, stdlib only, no deps)
 
 # 2. Provide the Jev API key (environment only; never in project files)
-export WISE_YOLO_JEV_API_KEY=…  # or TYPESAFE_API_KEY
+export TINY_BOUNCER_JEV_API_KEY=…  # or TYPESAFE_API_KEY
 
 # 3. Screen commands by hand
-bin/wiseyolo check <<< '{"commands":["git status","rm -rf /"]}'
+bin/tinybouncer check <<< '{"commands":["git status","rm -rf /"]}'
 
 # 4. Wire the plugin into OpenCode (opencode.jsonc)
 ```
@@ -58,17 +58,17 @@ bin/wiseyolo check <<< '{"commands":["git status","rm -rf /"]}'
 {
   "$schema": "https://opencode.ai/config.json",
   "plugins": [
-    { "package": "./opencode/plugins/wise-yolo" }
+    { "package": "./opencode/plugins/tiny-bouncer" }
   ]
 }
 ```
 
-The plugin looks for `wiseyolo` on `PATH` by default; set the `executable` option to
-point at `bin/wiseyolo` explicitly:
+The plugin looks for `tinybouncer` on `PATH` by default; set the `executable` option to
+point at `bin/tinybouncer` explicitly:
 
 ```jsonc
-{ "package": "./opencode/plugins/wise-yolo",
-  "options": { "executable": "/abs/path/to/wise-yolo/bin/wiseyolo",
+{ "package": "./opencode/plugins/tiny-bouncer",
+  "options": { "executable": "/abs/path/to/tiny-bouncer/bin/tinybouncer",
                "onError": "ask", "timeoutMs": 20000 } }
 ```
 
@@ -79,23 +79,23 @@ OpenAI-compatible endpoint), or with Apple Foundation Models on-device:
 
 ```sh
 # OpenAI-compatible endpoint (LM Studio serving Gemma-4-E2B)
-export WISE_YOLO_API_BASE_URL=http://127.0.0.1:1234/v1
-export WISE_YOLO_API_MODEL=gemma-4-e2b-it-qat@q4_k_xl
-bin/wiseyolo check --backend api <<< '{"commands":["git status","rm -rf /"]}'
+export TINY_BOUNCER_API_BASE_URL=http://127.0.0.1:1234/v1
+export TINY_BOUNCER_API_MODEL=gemma-4-e2b-it-qat@q4_k_xl
+bin/tinybouncer check --backend api <<< '{"commands":["git status","rm -rf /"]}'
 
 # macOS 27+ with Apple Intelligence enabled (the `fm` CLI)
-bin/wiseyolo check --backend afm <<< '{"commands":["git status","rm -rf /"]}'
+bin/tinybouncer check --backend afm <<< '{"commands":["git status","rm -rf /"]}'
 ```
 
-Select one for the plugin by setting `WISE_YOLO_BACKEND` (e.g. `api`) or the plugin's
+Select one for the plugin by setting `TINY_BOUNCER_BACKEND` (e.g. `api`) or the plugin's
 `backend` option.
 
 ## CLI reference
 
 ```sh
-wiseyolo check [--backend jev|mock|api|afm] [--cache|--no-cache] < commands.json
-wiseyolo eval  --backend jev|api|afm [--compare] [--against <backend>] [--sweep]   # labelled-corpus evaluation
-wiseyolo doctor [--backend jev|mock|api|afm]                 # credentials/endpoint health
+tinybouncer check [--backend jev|mock|api|afm] [--cache|--no-cache] < commands.json
+tinybouncer eval  --backend jev|api|afm [--compare] [--against <backend>] [--sweep]   # labelled-corpus evaluation
+tinybouncer doctor [--backend jev|mock|api|afm]                 # credentials/endpoint health
 ```
 
 ### `check` output contract
@@ -123,9 +123,9 @@ contract), `1` usage/config error, `2` internal error. Diagnostics go to stderr.
 code `0` only when every reported backend is healthy:
 
 ```sh
-$ bin/wiseyolo doctor --backend mock   # stdout (compact, one line per backend):
+$ bin/tinybouncer doctor --backend mock   # stdout (compact, one line per backend):
 {"backend":"mock","ok":true,"model":"mock-rules","policy_version":"mock-0","thresholds_version":"mock-0","error":""}
-# → stderr (human-readable summary): wiseyolo doctor: mock: ok (model mock-rules, policy mock-0, thresholds mock-0)
+# → stderr (human-readable summary): tinybouncer doctor: mock: ok (model mock-rules, policy mock-0, thresholds mock-0)
 ```
 
 The plugin runs `doctor --backend <selected>` asynchronously at load (best effort,
@@ -157,7 +157,7 @@ prints a note and exits 0 (nothing to compare yet).
 
 ```sh
 # compare the API backend with the recorded Jev run
-bin/wiseyolo eval --backend api --against jev
+bin/tinybouncer eval --backend api --against jev
 ```
 
 Regression gates are per backend when `--compare` or `--against` is in use: the default
@@ -198,7 +198,7 @@ summarised in [`reports/summary-backends-2026-10-06.md`](reports/summary-backend
 | `mock` | none | Deterministic rules for offline tests and the eval floor |
 
 `api` and `afm` are **optional**: `doctor`'s default report omits one whose endpoint
-(`WISE_YOLO_API_BASE_URL`) or CLI (`fm`) is not configured, so an unused optional
+(`TINY_BOUNCER_API_BASE_URL`) or CLI (`fm`) is not configured, so an unused optional
 backend cannot fail an otherwise-healthy run; `doctor --backend <id>` still reports it.
 Both are currently **comparison-only** (see the calibration section above): neither
 meets the hard `FNR = 0` safety gate, so the default backend stays `jev`.
@@ -211,10 +211,10 @@ eval harness, or the plugin.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `executable` | `wiseyolo` | Binary path (absolute or on `PATH`) |
+| `executable` | `tinybouncer` | Binary path (absolute or on `PATH`) |
 | `timeoutMs` | `20000` | Kill timer per `check` invocation; must exceed the classifier's own budget |
 | `onError` | `ask` | Effect when the classifier fails: `ask` \| `deny` \| `allow` |
-| `backend` | *(unset)* | Backend id passed as `--backend`; unset = the CLI's own resolution (`WISE_YOLO_BACKEND`, default `jev`) |
+| `backend` | *(unset)* | Backend id passed as `--backend`; unset = the CLI's own resolution (`TINY_BOUNCER_BACKEND`, default `jev`) |
 | `grantFromAsk` | `false` | Let a classifier `allow` relax a configured `ask` — the only widening path |
 | `logDecisions` | `false` | Log verdicts with a hash of the command — never the text |
 
@@ -223,7 +223,7 @@ compound shell strings are screened in one batched call; an empty/absent classif
 result is treated the same as any other failure (i.e. `onError`). Strictness is
 never loosened by the classifier: a `deny` never softens, an `ask` never becomes an
 `allow`, and only `grantFromAsk` — only when the classifier says `allow` — relaxes a
-configured `ask`. At plugin load, `wiseyolo doctor` runs asynchronously: a healthy
+configured `ask`. At plugin load, `tinybouncer doctor` runs asynchronously: a healthy
 backend logs its model and thresholds; otherwise a single warning says screening
 will fall back to `ask`.
 
@@ -233,23 +233,23 @@ some OpenCode embedded runtimes do not surface console output, so absence of log
 is not itself a fault. Decision logs (with `logDecisions: true`) contain verdict plus a
 sha256 hash of the command batch, never the command text.
 
-### Environment (backends; read by the `wiseyolo` binary, not the plugin)
+### Environment (backends; read by the `tinybouncer` binary, not the plugin)
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `WISE_YOLO_BACKEND` | backend id when no `--backend`/option is set | `jev` |
-| `WISE_YOLO_JEV_API_KEY` / `TYPESAFE_API_KEY` | Jev credentials | — |
-| `WISE_YOLO_JEV_BASE_URL` / `TYPESAFE_ENDPOINT` | Jev endpoint override | `https://api.typesafe.ai` |
-| `WISE_YOLO_JEV_MODEL` | Jev model or alias | `jev-latest` |
-| `WISE_YOLO_TIMEOUT_MS` | per-request timeout inside the classifier | `15000` |
-| `WISE_YOLO_RETRIES` | transport retry attempts | `3` |
-| `WISE_YOLO_CACHE` | response cache on/off (`check` only) | on |
-| `WISE_YOLO_API_BASE_URL` | OpenAI-compatible endpoint (`api` backend) | required for `api` |
-| `WISE_YOLO_API_MODEL` | model id (`api` backend) | `gemma-4-e2b-it-qat@q4_k_xl` |
-| `WISE_YOLO_API_KEY` | bearer token (`api` backend), if any | — |
-| `WISE_YOLO_AFM_EXECUTABLE` | `fm` CLI path (`afm` backend) | `fm` |
-| `WISE_YOLO_CHAT_CONCURRENCY` | chat backend fan-out width | `1` |
-| `WISE_YOLO_CHAT_TIMEOUT_MS` | per-command chat timeout (ms) | `30000` |
+| `TINY_BOUNCER_BACKEND` | backend id when no `--backend`/option is set | `jev` |
+| `TINY_BOUNCER_JEV_API_KEY` / `TYPESAFE_API_KEY` | Jev credentials | — |
+| `TINY_BOUNCER_JEV_BASE_URL` / `TYPESAFE_ENDPOINT` | Jev endpoint override | `https://api.typesafe.ai` |
+| `TINY_BOUNCER_JEV_MODEL` | Jev model or alias | `jev-latest` |
+| `TINY_BOUNCER_TIMEOUT_MS` | per-request timeout inside the classifier | `15000` |
+| `TINY_BOUNCER_RETRIES` | transport retry attempts | `3` |
+| `TINY_BOUNCER_CACHE` | response cache on/off (`check` only) | on |
+| `TINY_BOUNCER_API_BASE_URL` | OpenAI-compatible endpoint (`api` backend) | required for `api` |
+| `TINY_BOUNCER_API_MODEL` | model id (`api` backend) | `gemma-4-e2b-it-qat@q4_k_xl` |
+| `TINY_BOUNCER_API_KEY` | bearer token (`api` backend), if any | — |
+| `TINY_BOUNCER_AFM_EXECUTABLE` | `fm` CLI path (`afm` backend) | `fm` |
+| `TINY_BOUNCER_CHAT_CONCURRENCY` | chat backend fan-out width | `1` |
+| `TINY_BOUNCER_CHAT_TIMEOUT_MS` | per-command chat timeout (ms) | `30000` |
 
 ### Manual TUI verification checklist
 
@@ -257,8 +257,8 @@ Run a real OpenCode session with the plugin registered (see the snippets above) 
 confirm each step:
 
 1. **Startup** — the OpenCode log shows the plugin's setup lines: classifier facts
-   (`wiseyolo: backend …: model …, policy …, thresholds …`) or the single warning
-   `wiseyolo: screening will fall back to ask`; the session start is never delayed.
+   (`tinybouncer: backend …: model …, policy …, thresholds …`) or the single warning
+   `tinybouncer: screening will fall back to ask`; the session start is never delayed.
 2. **Allow without prompt** — ask for a read-only command (e.g. `git status`; with the
    `mock` backend or benign Jev probabilities) and confirm it runs without an
    approval prompt.
@@ -268,7 +268,7 @@ confirm each step:
 4. **Deny is final** — run a dangerous command (e.g. `rm -rf /`; mock rules deny it
    with high confidence) and confirm the command is rejected with the classifier's
    denial message, and no prompt offers to run it.
-5. **Outage → interactive ask** — stop the classifier (rename `bin/wiseyolo`, or point
+5. **Outage → interactive ask** — stop the classifier (rename `bin/tinybouncer`, or point
    `executable` at a missing path) and run any command: the `onError` effect (default
    `ask`) shows the normal interactive approval prompt, and the outage is named in
    the permission message.
@@ -293,14 +293,14 @@ confirm each step:
 ## Troubleshooting
 
 - **`401 Unauthorized` in `doctor`** — key missing or wrong. Check
-  `WISE_YOLO_JEV_API_KEY` / `TYPESAFE_API_KEY` (and `WISE_YOLO_JEV_BASE_URL` if you run
+  `TINY_BOUNCER_JEV_API_KEY` / `TYPESAFE_API_KEY` (and `TINY_BOUNCER_JEV_BASE_URL` if you run
   a proxy).
 - **Agent execution feels slow** — the first call warms the model round trip; every
   command is one Jev request. Use a cache (`--cache`, default on) and keep the timeout
-  (`WISE_YOLO_TIMEOUT_MS`) reasonable; verify with `bin/wiseyolo eval --bench-spawn`
+  (`TINY_BOUNCER_TIMEOUT_MS`) reasonable; verify with `bin/tinybouncer eval --bench-spawn`
   and the `wall_ms` p95 in `reports/`.
 - **Classifier outage mid-session** — the plugin applies `onError` (default `ask`), so
-  you should see interactive prompts; `wiseyolo doctor` tells you what's wrong.
+  you should see interactive prompts; `tinybouncer doctor` tells you what's wrong.
 - **Cache weirdness after tuning** — keys include backend, model, policy and thresholds
   versions; tuning thresholds invalidates old entries automatically.
 
@@ -320,9 +320,9 @@ confirm each step:
   performance record (kept intentionally, including the calibration trail); reports
   contain synthetic corpus commands only.
 - `make eval-api` / `make eval-afm` — opt-in live runs against the chat backends
-  (`eval --backend api|afm --compare`). `eval-api` needs `WISE_YOLO_API_BASE_URL`
+  (`eval --backend api|afm --compare`). `eval-api` needs `TINY_BOUNCER_API_BASE_URL`
   (LM Studio serving Gemma-4-E2B by default); `eval-afm` needs a ready on-device
   model (`fm available`). Either prints a warning and skips safely when unavailable.
   Both backends are comparison-only (no per-backend gates file), so these targets
   apply the shared Jev gates and report FAILED by design.
-- Plugin: `cd opencode/plugins/wise-yolo && npm run typecheck && npm run test`.
+- Plugin: `cd opencode/plugins/tiny-bouncer && npm run typecheck && npm run test`.

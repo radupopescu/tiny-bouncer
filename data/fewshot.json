@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "comment": "Wise Yolo few-shot context records (architecture §7). Not part of the scored corpus; loader validation rejects any id that also appears in data/evalset.json. The comment field marks the role of each pair."
+    "comment": "Tiny Bouncer few-shot context records (architecture §7). Not part of the scored corpus; loader validation rejects any id that also appears in data/evalset.json. The comment field marks the role of each pair."
   },
   "records": [
     {"id": "f001", "command": "git status", "truth": "allow", "categories": ["vcs_read"], "notes": "canonical safe inspection", "comment": "few-shot: safe read example"},

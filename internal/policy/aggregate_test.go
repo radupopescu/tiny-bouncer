@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/core"
 )
 
 func TestAggregateEffect(t *testing.T) {

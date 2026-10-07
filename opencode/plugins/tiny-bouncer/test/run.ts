@@ -1,10 +1,10 @@
-// Wise Yolo plugin test harness. Runs the mapEffect unit table and the spawn
-// end-to-end cases against the built `wiseyolo` binary with the mock backend.
+// Tiny Bouncer plugin test harness. Runs the mapEffect unit table and the spawn
+// end-to-end cases against the built `tinybouncer` binary with the mock backend.
 // No network anywhere: the mock backend is fully offline.
 //
 // Run: npm test  (node --experimental-strip-types test/run.ts)
 // Prerequisite: the host build must exist first —
-//   make build   # from the repository root → bin/wiseyolo
+//   make build   # from the repository root → bin/tinybouncer
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,9 +34,9 @@ async function case_(name: string, fn: () => void | Promise<void>): Promise<void
 }
 
 // Keep cache use off and redirected for this test process.
-const cacheRoot = mkdtempSync(join(tmpdir(), "wise-yolo-plugin-test-"));
-process.env["WISE_YOLO_CACHE_DIR"] = cacheRoot;
-process.env["WISE_YOLO_CACHE"] = "false";
+const cacheRoot = mkdtempSync(join(tmpdir(), "tiny-bouncer-plugin-test-"));
+process.env["TINY_BOUNCER_CACHE_DIR"] = cacheRoot;
+process.env["TINY_BOUNCER_CACHE"] = "false";
 
 // --- mapEffect unit table ---------------------------------------------------
 
@@ -168,7 +168,7 @@ await case_("commandHash: deterministic, input-sensitive, raw text never derivab
 
 // --- spawn end-to-end (built binary, mock backend, no network) ---------------
 
-const bin = resolve(import.meta.dirname, "../../../../bin/wiseyolo");
+const bin = resolve(import.meta.dirname, "../../../../bin/tinybouncer");
 
 async function runEvent(
 	resources: readonly string[],
@@ -204,7 +204,7 @@ await case_("e2e: safe batch + grantFromAsk → a configured ask relaxes to allo
 });
 
 await case_("e2e: missing binary → onError (default ask) with an outage message", async () => {
-	const e = await runEvent(["git status"], "allow", { executable: "/does/not/exist/wiseyolo" });
+	const e = await runEvent(["git status"], "allow", { executable: "/does/not/exist/tinybouncer" });
 	assert.equal(e.effect, "ask");
 	assert.match(e.message ?? "", /spawn failed/, "the message names the outage");
 });
@@ -248,8 +248,8 @@ await case_("e2e: logDecisions logs hash + verdicts, never raw commands", async 
 await case_("e2e: exit 0 with invalid JSON → onError path", async () => {
 	// A stub executable that exits 0 printing garbage exercises the
 	// JSON-parse-failure outage without any network or Go work.
-	const stubDir = mkdtempSync(join(tmpdir(), "wise-yolo-stub-"));
-	const stubPath = join(stubDir, "wiseyolo-stub.sh");
+	const stubDir = mkdtempSync(join(tmpdir(), "tiny-bouncer-stub-"));
+	const stubPath = join(stubDir, "tinybouncer-stub.sh");
 	writeFileSync(
 		stubPath,
 		"#!/bin/sh\necho 'not json at all'\n",
@@ -265,8 +265,8 @@ await case_("doctor is scoped to the selected backend", () => {
 	// wins over the CLI default. This keeps an unused optional backend
 	// (api, afm) from warning at setup.
 	assert.deepEqual(doctorArgs({ backend: "api" }), ["doctor", "--json", "--backend", "api"]);
-	assert.equal(selectedBackend({}, { WISE_YOLO_BACKEND: "afm" }), "afm");
-	assert.equal(selectedBackend({ backend: "api" }, { WISE_YOLO_BACKEND: "afm" }), "api");
+	assert.equal(selectedBackend({}, { TINY_BOUNCER_BACKEND: "afm" }), "afm");
+	assert.equal(selectedBackend({ backend: "api" }, { TINY_BOUNCER_BACKEND: "afm" }), "api");
 	assert.equal(selectedBackend({}, {}), "jev");
 });
 

@@ -2,7 +2,7 @@
 // a batch, in the dispatcher. It is pure: no I/O, no backends, no clocks.
 package policy
 
-import "wiseyolo/internal/core"
+import "tinybouncer/internal/core"
 
 // Aggregate folds a batch of verdicts into the single effect the plugin
 // applies: any deny → deny; else any ask → ask; else allow. An empty batch

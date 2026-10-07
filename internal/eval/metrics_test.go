@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/core"
 )
 
 // Hand-computed unit tests for the architecture §7 metrics. Every expectation

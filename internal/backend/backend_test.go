@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/core"
 )
 
 // stub satisfies the full Backend interface; keeping it here forces a
@@ -46,11 +46,11 @@ func TestRegistry(t *testing.T) {
 }
 
 func TestEnv(t *testing.T) {
-	t.Setenv("WISE_YOLO_TEST_KEY", "v")
-	if got := Env("WISE_YOLO_TEST_KEY", "d"); got != "v" {
+	t.Setenv("TINY_BOUNCER_TEST_KEY", "v")
+	if got := Env("TINY_BOUNCER_TEST_KEY", "d"); got != "v" {
 		t.Fatalf("Env = %q, want v", got)
 	}
-	if got := Env("WISE_YOLO_TEST_MISSING", "d"); got != "d" {
+	if got := Env("TINY_BOUNCER_TEST_MISSING", "d"); got != "d" {
 		t.Fatalf("Env = %q, want d", got)
 	}
 }

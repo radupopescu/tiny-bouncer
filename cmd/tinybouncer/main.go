@@ -1,4 +1,4 @@
-// Command wiseyolo screens shell commands requested by LLM agents before they
+// Command tinybouncer screens shell commands requested by LLM agents before they
 // run, mapping verdicts onto OpenCode permission effects (architecture §3).
 //
 // Subcommands:
@@ -21,11 +21,11 @@ import (
 	"os"
 	"strings"
 
-	"wiseyolo/internal/backend"
-	_ "wiseyolo/internal/backend/chat" // register the api and afm backends
-	_ "wiseyolo/internal/backend/jev"  // register the live backend (T07: both backends built in)
-	_ "wiseyolo/internal/backend/mock" // register the offline backend
-	"wiseyolo/internal/dispatch"
+	"tinybouncer/internal/backend"
+	_ "tinybouncer/internal/backend/chat" // register the api and afm backends
+	_ "tinybouncer/internal/backend/jev"  // register the live backend (T07: both backends built in)
+	_ "tinybouncer/internal/backend/mock" // register the offline backend
+	"tinybouncer/internal/dispatch"
 )
 
 // defaultBackend is the backend id used when neither the flag nor the
@@ -54,7 +54,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		usage(stdout)
 		return 0
 	default:
-		fmt.Fprintf(stderr, "wiseyolo: unknown subcommand %q\n\n", args[0])
+		fmt.Fprintf(stderr, "tinybouncer: unknown subcommand %q\n\n", args[0])
 		usage(stderr)
 		return 1
 	}
@@ -62,7 +62,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 // usage prints the subcommand summary.
 func usage(w io.Writer) {
-	fmt.Fprintf(w, `usage: wiseyolo <subcommand> [flags]
+	fmt.Fprintf(w, `usage: tinybouncer <subcommand> [flags]
 
 subcommands:
   check   classify commands read from stdin (JSON: {"commands": [...]})
@@ -70,12 +70,12 @@ subcommands:
   doctor  verify backend credentials and reachability (health JSON on stdout)
 
 check flags:
-  --backend <name>   judgment backend (default: WISE_YOLO_BACKEND or %[1]s)
-  --cache            force the response cache on (overrides WISE_YOLO_CACHE)
-  --no-cache         force the response cache off (overrides WISE_YOLO_CACHE)
+  --backend <name>   judgment backend (default: TINY_BOUNCER_BACKEND or %[1]s)
+  --cache            force the response cache on (overrides TINY_BOUNCER_CACHE)
+  --no-cache         force the response cache off (overrides TINY_BOUNCER_CACHE)
 
 eval flags:
-  --backend <name>   judgment backend (default: WISE_YOLO_BACKEND or %[1]s)
+  --backend <name>   judgment backend (default: TINY_BOUNCER_BACKEND or %[1]s)
   --corpus <file>    evalset.json (default: data/evalset.json found upwards)
   --reports <dir>    report and history directory (default: reports)
   --gates <file>     apply regression gates from this file
@@ -83,7 +83,7 @@ eval flags:
                      from <reports>/gates.json when the file exists
   --against <name>   versus the most recent report of another backend; writes a
                      compare report and prefers <reports>/gates-<name>.json
-  --sweep <variants> semicolon-separated WISE_YOLO_JEV_THRESHOLDS variants (jev only)
+  --sweep <variants> semicolon-separated TINY_BOUNCER_JEV_THRESHOLDS variants (jev only)
   --bench-spawn      time empty-input spawns of this binary (mean, p95)
 
 doctor flags:
@@ -105,14 +105,14 @@ func writeInputError(stdout, stderr io.Writer, msg string) {
 	if b, err := json.MarshalIndent(e, "", "  "); err == nil {
 		fmt.Fprintln(stdout, string(b))
 	}
-	fmt.Fprintf(stderr, "wiseyolo check: %s\n", msg)
+	fmt.Fprintf(stderr, "tinybouncer check: %s\n", msg)
 }
 
 // runCheck implements the check subcommand (architecture §3 and §5).
 func runCheck(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	backendName := fs.String("backend", backend.Env("WISE_YOLO_BACKEND", defaultBackend),
+	backendName := fs.String("backend", backend.Env("TINY_BOUNCER_BACKEND", defaultBackend),
 		"judgment backend id (registry name)")
 	cacheOn := fs.Bool("cache", false, "force the response cache on")
 	cacheOff := fs.Bool("no-cache", false, "force the response cache off")
@@ -126,13 +126,13 @@ func runCheck(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	factory, ok := backend.Lookup(*backendName)
 	if !ok {
-		fmt.Fprintf(stderr, "wiseyolo check: unknown backend %q (available: %s)\n",
+		fmt.Fprintf(stderr, "tinybouncer check: unknown backend %q (available: %s)\n",
 			*backendName, availableBackends())
 		return 1
 	}
 	b, err := factory(backend.Config{})
 	if err != nil {
-		fmt.Fprintf(stderr, "wiseyolo check: backend %q: %v\n", *backendName, err)
+		fmt.Fprintf(stderr, "tinybouncer check: backend %q: %v\n", *backendName, err)
 		return 1
 	}
 
@@ -155,7 +155,7 @@ func runCheck(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	// Iteration: default enabled for check (honours WISE_YOLO_CACHE); each
+	// Iteration: default enabled for check (honours TINY_BOUNCER_CACHE); each
 	// flag overrides both. Eval forces NoCache itself (architecture §5).
 	var hook dispatch.CacheHook = dispatch.NoCache{}
 	if *cacheOn || (!*cacheOff && dispatch.DefaultCacheEnabled()) {
@@ -165,7 +165,7 @@ func runCheck(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	out := dispatch.New(b, hook).Run(context.Background(), input.Commands)
 	enc, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
-		fmt.Fprintf(stderr, "wiseyolo check: internal error encoding the contract: %v\n", err)
+		fmt.Fprintf(stderr, "tinybouncer check: internal error encoding the contract: %v\n", err)
 		return 2
 	}
 	fmt.Fprintln(stdout, string(enc))

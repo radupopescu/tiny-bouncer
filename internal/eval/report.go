@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"time"
 
-	"wiseyolo/internal/backend"
+	"tinybouncer/internal/backend"
 )
 
 // HistoryLine is one appended line of reports/history.jsonl (plan T09):

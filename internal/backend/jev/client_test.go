@@ -401,9 +401,9 @@ func TestEnvPrecedence(t *testing.T) {
 		wantBase string
 		wantErr  bool
 	}{
-		{name: "default", env: map[string]string{"WISE_YOLO_JEV_API_KEY": "a"}, wantBase: DefaultBaseURL},
-		{name: "typesafe endpoint fallback", env: map[string]string{"WISE_YOLO_JEV_API_KEY": "a", "TYPESAFE_ENDPOINT": "https://cookbook.typesafe.ai"}, wantBase: "https://cookbook.typesafe.ai"},
-		{name: "wise yolo override wins", env: map[string]string{"WISE_YOLO_JEV_API_KEY": "a", "TYPESAFE_ENDPOINT": "https://cookbook.typesafe.ai", "WISE_YOLO_JEV_BASE_URL": "https://override.typesafe.ai"}, wantBase: "https://override.typesafe.ai"},
+		{name: "default", env: map[string]string{"TINY_BOUNCER_JEV_API_KEY": "a"}, wantBase: DefaultBaseURL},
+		{name: "typesafe endpoint fallback", env: map[string]string{"TINY_BOUNCER_JEV_API_KEY": "a", "TYPESAFE_ENDPOINT": "https://cookbook.typesafe.ai"}, wantBase: "https://cookbook.typesafe.ai"},
+		{name: "tiny bouncer override wins", env: map[string]string{"TINY_BOUNCER_JEV_API_KEY": "a", "TYPESAFE_ENDPOINT": "https://cookbook.typesafe.ai", "TINY_BOUNCER_JEV_BASE_URL": "https://override.typesafe.ai"}, wantBase: "https://override.typesafe.ai"},
 		{name: "typesafe key fallback", env: map[string]string{"TYPESAFE_API_KEY": "a"}, wantBase: DefaultBaseURL},
 		{name: "no key", env: map[string]string{}, wantErr: true},
 	}
@@ -411,7 +411,7 @@ func TestEnvPrecedence(t *testing.T) {
 	// CI machine with TYPESAFE_API_KEY set); the no-key case requires the
 	// candidates to be genuinely absent, so clear them explicitly. Empty
 	// counts as unconfigured.
-	t.Setenv("WISE_YOLO_JEV_API_KEY", "")
+	t.Setenv("TINY_BOUNCER_JEV_API_KEY", "")
 	t.Setenv("TYPESAFE_API_KEY", "")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -437,9 +437,9 @@ func TestEnvPrecedence(t *testing.T) {
 }
 
 func TestKeyPrecedence(t *testing.T) {
-	t.Run("wise yolo key wins", func(t *testing.T) {
+	t.Run("tiny bouncer key wins", func(t *testing.T) {
 		c, err := NewWithLookup(func(k string) string {
-			if k == "WISE_YOLO_JEV_API_KEY" {
+			if k == "TINY_BOUNCER_JEV_API_KEY" {
 				return "primary"
 			}
 			if k == "TYPESAFE_API_KEY" {
@@ -481,9 +481,9 @@ func TestEnvOverrides(t *testing.T) {
 	t.Run("timeout", func(t *testing.T) {
 		c, err := NewWithLookup(func(k string) string {
 			switch k {
-			case "WISE_YOLO_JEV_API_KEY":
+			case "TINY_BOUNCER_JEV_API_KEY":
 				return "primary"
-			case "WISE_YOLO_TIMEOUT_MS":
+			case "TINY_BOUNCER_TIMEOUT_MS":
 				return "2500"
 			}
 			return ""
@@ -498,9 +498,9 @@ func TestEnvOverrides(t *testing.T) {
 	t.Run("retries", func(t *testing.T) {
 		c, err := NewWithLookup(func(k string) string {
 			switch k {
-			case "WISE_YOLO_JEV_API_KEY":
+			case "TINY_BOUNCER_JEV_API_KEY":
 				return "primary"
-			case "WISE_YOLO_RETRIES":
+			case "TINY_BOUNCER_RETRIES":
 				return "5"
 			}
 			return ""
@@ -514,10 +514,10 @@ func TestEnvOverrides(t *testing.T) {
 	})
 	t.Run("bad retries typed error", func(t *testing.T) {
 		_, err := NewWithLookup(func(k string) string {
-			if k == "WISE_YOLO_JEV_API_KEY" {
+			if k == "TINY_BOUNCER_JEV_API_KEY" {
 				return "primary"
 			}
-			if k == "WISE_YOLO_RETRIES" {
+			if k == "TINY_BOUNCER_RETRIES" {
 				return "zero"
 			}
 			return ""

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 // stubBackend is a scripted in-process backend for pipeline tests.

@@ -1,5 +1,5 @@
 // Package core defines the stable, backend-blind contracts shared by the
-// wiseyolo pipeline: effects, verdicts, and the commands being judged.
+// tinybouncer pipeline: effects, verdicts, and the commands being judged.
 package core
 
 // Effect is the permission outcome of a verdict: "allow", "deny", or "ask".

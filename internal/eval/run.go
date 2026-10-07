@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"time"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
-	"wiseyolo/internal/dispatch"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
+	"tinybouncer/internal/dispatch"
 )
 
 // emptyInput is the stdin payload for the spawn benchmark: an empty batch.

@@ -50,10 +50,10 @@ type Config struct {
 }
 
 // resolveEnv reads configuration with documented precedence:
-// WISE_YOLO_JEV_BASE_URL → TYPESAFE_ENDPOINT → DefaultBaseURL for the base;
-// WISE_YOLO_JEV_API_KEY → TYPESAFE_API_KEY for the key.
+// TINY_BOUNCER_JEV_BASE_URL → TYPESAFE_ENDPOINT → DefaultBaseURL for the base;
+// TINY_BOUNCER_JEV_API_KEY → TYPESAFE_API_KEY for the key.
 func resolveEnv(lookup func(string) string) (Config, error) {
-	cfg := Config{BaseURL: DefaultBaseURL, APIKey: lookup("WISE_YOLO_JEV_API_KEY"), Model: lookup("WISE_YOLO_JEV_MODEL"), Timeout: DefaultTimeout}
+	cfg := Config{BaseURL: DefaultBaseURL, APIKey: lookup("TINY_BOUNCER_JEV_API_KEY"), Model: lookup("TINY_BOUNCER_JEV_MODEL"), Timeout: DefaultTimeout}
 	if cfg.Model == "" {
 		cfg.Model = DefaultModel
 	}
@@ -61,25 +61,25 @@ func resolveEnv(lookup func(string) string) (Config, error) {
 		cfg.APIKey = lookup("TYPESAFE_API_KEY")
 	}
 	if cfg.APIKey == "" {
-		return Config{}, &ConfigError{Message: "jev: no API key configured (set WISE_YOLO_JEV_API_KEY or TYPESAFE_API_KEY)"}
+		return Config{}, &ConfigError{Message: "jev: no API key configured (set TINY_BOUNCER_JEV_API_KEY or TYPESAFE_API_KEY)"}
 	}
-	if v := lookup("WISE_YOLO_JEV_BASE_URL"); v != "" {
+	if v := lookup("TINY_BOUNCER_JEV_BASE_URL"); v != "" {
 		cfg.BaseURL = v
 	} else if v := lookup("TYPESAFE_ENDPOINT"); v != "" {
 		cfg.BaseURL = v
 	}
-	if v := lookup("WISE_YOLO_TIMEOUT_MS"); v != "" {
+	if v := lookup("TINY_BOUNCER_TIMEOUT_MS"); v != "" {
 		ms, err := strconv.Atoi(v)
 		if err != nil || ms <= 0 {
-			return Config{}, &ConfigError{Message: fmt.Sprintf("jev: invalid WISE_YOLO_TIMEOUT_MS %q", v)}
+			return Config{}, &ConfigError{Message: fmt.Sprintf("jev: invalid TINY_BOUNCER_TIMEOUT_MS %q", v)}
 		}
 		cfg.Timeout = time.Duration(ms) * time.Millisecond
 	}
 	cfg.MaxAttempts = DefaultMaxAttempts
-	if v := lookup("WISE_YOLO_RETRIES"); v != "" {
+	if v := lookup("TINY_BOUNCER_RETRIES"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			return Config{}, &ConfigError{Message: fmt.Sprintf("jev: invalid WISE_YOLO_RETRIES %q", v)}
+			return Config{}, &ConfigError{Message: fmt.Sprintf("jev: invalid TINY_BOUNCER_RETRIES %q", v)}
 		}
 		cfg.MaxAttempts = n
 	}

@@ -13,7 +13,7 @@ import (
 	"math"
 	"sort"
 
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/core"
 )
 
 // Scored pairs one corpus record with the verdict the runner produced for it

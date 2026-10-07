@@ -45,7 +45,7 @@ func parseDoctorRows(t *testing.T, stdout string) []doctorHealth {
 
 // jevEnv builds the environment for a doctor run against a test endpoint.
 func jevEnv(baseURL string) []string {
-	return []string{"WISE_YOLO_JEV_BASE_URL=" + baseURL, "WISE_YOLO_JEV_API_KEY=test-key"}
+	return []string{"TINY_BOUNCER_JEV_BASE_URL=" + baseURL, "TINY_BOUNCER_JEV_API_KEY=test-key"}
 }
 
 func TestDoctorHealthyJev(t *testing.T) {
@@ -145,7 +145,7 @@ func TestDoctorMissingKeyExitsOneWithoutNetwork(t *testing.T) {
 	url := srv.URL
 	srv.Close()
 
-	env := []string{"WISE_YOLO_JEV_BASE_URL=" + url}
+	env := []string{"TINY_BOUNCER_JEV_BASE_URL=" + url}
 	code, stdout, _ := runBinary(t, checkBin, "", env, "doctor")
 	if code != 1 {
 		t.Fatalf("exit = %d, want 1 with no key configured", code)
@@ -210,7 +210,7 @@ func TestDoctorAPI(t *testing.T) {
 	}))
 	defer healthy.Close()
 
-	env := []string{"WISE_YOLO_API_BASE_URL=" + healthy.URL, "WISE_YOLO_API_MODEL=test-model"}
+	env := []string{"TINY_BOUNCER_API_BASE_URL=" + healthy.URL, "TINY_BOUNCER_API_MODEL=test-model"}
 	code, stdout, stderr := runBinary(t, checkBin, "", env, "doctor", "--backend", "api")
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0; stdout=%q stderr=%q", code, stdout, stderr)
@@ -225,7 +225,7 @@ func TestDoctorAPI(t *testing.T) {
 	}))
 	defer broken.Close()
 	code, stdout, _ = runBinary(t, checkBin, "",
-		[]string{"WISE_YOLO_API_BASE_URL=" + broken.URL, "WISE_YOLO_API_MODEL=test-model"},
+		[]string{"TINY_BOUNCER_API_BASE_URL=" + broken.URL, "TINY_BOUNCER_API_MODEL=test-model"},
 		"doctor", "--backend", "api")
 	if code != 1 {
 		t.Fatalf("exit = %d, want 1 for a 401 health check", code)
@@ -241,7 +241,7 @@ func TestDoctorAPI(t *testing.T) {
 func TestDoctorAFM(t *testing.T) {
 	fakeFM := filepath.Join("..", "..", "internal", "backend", "chat", "testdata", "fakefm.sh")
 	code, stdout, stderr := runBinary(t, checkBin, "",
-		[]string{"WISE_YOLO_AFM_EXECUTABLE=" + fakeFM}, "doctor", "--backend", "afm")
+		[]string{"TINY_BOUNCER_AFM_EXECUTABLE=" + fakeFM}, "doctor", "--backend", "afm")
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0; stdout=%q stderr=%q", code, stdout, stderr)
 	}
@@ -256,7 +256,7 @@ func TestDoctorAFM(t *testing.T) {
 		t.Fatalf("write shim: %v", err)
 	}
 	code, stdout, _ = runBinary(t, checkBin, "",
-		[]string{"WISE_YOLO_AFM_EXECUTABLE=" + unready}, "doctor", "--backend", "afm")
+		[]string{"TINY_BOUNCER_AFM_EXECUTABLE=" + unready}, "doctor", "--backend", "afm")
 	if code != 1 {
 		t.Fatalf("exit = %d, want 1 when the model is not ready", code)
 	}

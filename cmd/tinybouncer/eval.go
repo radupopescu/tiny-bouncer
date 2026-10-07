@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/eval"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/eval"
 )
 
 // gatesExit is the exit code for a run that violates an active gate
@@ -27,7 +27,7 @@ const gatesExit = 3
 
 // thresholdsEnv is the jev sweep-override variable (T06): each --sweep
 // variant is one full value of this variable for the corpus run.
-const thresholdsEnv = "WISE_YOLO_JEV_THRESHOLDS"
+const thresholdsEnv = "TINY_BOUNCER_JEV_THRESHOLDS"
 
 // factoryFor resolves a backend factory or fails with a diagnostic.
 func factoryFor(name string) (backend.Backend, error) {
@@ -50,26 +50,26 @@ func fileExists(path string) bool {
 func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("eval", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	backendName := fs.String("backend", backend.Env("WISE_YOLO_BACKEND", defaultBackend),
+	backendName := fs.String("backend", backend.Env("TINY_BOUNCER_BACKEND", defaultBackend),
 		"judgment backend id (registry name)")
 	corpusFlag := fs.String("corpus", "", "evalset.json location (default: data/evalset.json found upwards from the working directory)")
 	reportsFlag := fs.String("reports", "reports", "report and history directory")
 	gatesFlag := fs.String("gates", "", "gates file to apply (with --compare, default <reports>/gates.json)")
 	compare := fs.Bool("compare", false, "compare against the most recent same-backend history line")
 	against := fs.String("against", "", "compare this run against the most recent report of another backend")
-	sweep := fs.String("sweep", "", "semicolon-separated WISE_YOLO_JEV_THRESHOLDS variants (each comma-separated key=value pairs; jev only)")
+	sweep := fs.String("sweep", "", "semicolon-separated TINY_BOUNCER_JEV_THRESHOLDS variants (each comma-separated key=value pairs; jev only)")
 	bench := fs.Bool("bench-spawn", false, "also benchmark empty-input spawns of this binary (mean and p95)")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
 	if fs.NArg() > 0 {
-		fmt.Fprintf(stderr, "wiseyolo eval: unexpected argument %q\n", fs.Arg(0))
+		fmt.Fprintf(stderr, "tinybouncer eval: unexpected argument %q\n", fs.Arg(0))
 		return 1
 	}
 
 	b, err := factoryFor(*backendName)
 	if err != nil {
-		fmt.Fprintf(stderr, "wiseyolo eval: backend %q: %v\n", *backendName, err)
+		fmt.Fprintf(stderr, "tinybouncer eval: backend %q: %v\n", *backendName, err)
 		return 1
 	}
 	info := b.Info()
@@ -80,13 +80,13 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	set, err := corpusLoader(*corpusFlag)
 	if err != nil {
-		fmt.Fprintf(stderr, "wiseyolo eval: %v\n", err)
+		fmt.Fprintf(stderr, "tinybouncer eval: %v\n", err)
 		return 1
 	}
 
 	scores, usage, err := eval.RunBackend(context.Background(), b, set)
 	if err != nil {
-		fmt.Fprintf(stderr, "wiseyolo eval: internal error: %v\n", err)
+		fmt.Fprintf(stderr, "tinybouncer eval: internal error: %v\n", err)
 		return 2
 	}
 
@@ -94,7 +94,7 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if *bench {
 		res, err := eval.BenchSpawn(context.Background(), *backendName)
 		if err != nil {
-			fmt.Fprintf(stderr, "wiseyolo eval: %v\n", err)
+			fmt.Fprintf(stderr, "tinybouncer eval: %v\n", err)
 			return 2
 		}
 		fmt.Fprintf(stdout, "spawn bench: runs=%d mean=%.2fms p95=%.2fms\n",
@@ -112,15 +112,15 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	path, err := rep.Write(*reportsFlag)
 	if err != nil {
-		fmt.Fprintf(stderr, "wiseyolo eval: write report: %v\n", err)
+		fmt.Fprintf(stderr, "tinybouncer eval: write report: %v\n", err)
 		return 2
 	}
 	if histErr != nil {
-		fmt.Fprintf(stderr, "wiseyolo eval: history %q: %v\n", *reportsFlag, histErr)
+		fmt.Fprintf(stderr, "tinybouncer eval: history %q: %v\n", *reportsFlag, histErr)
 		return 2
 	}
 	if err := eval.AppendHistory(*reportsFlag, current); err != nil {
-		fmt.Fprintf(stderr, "wiseyolo eval: history %q: %v\n", *reportsFlag, err)
+		fmt.Fprintf(stderr, "tinybouncer eval: history %q: %v\n", *reportsFlag, err)
 		return 2
 	}
 
@@ -157,7 +157,7 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if *against != "" {
 		other, otherFound, err := eval.LatestReport(*reportsFlag, *against)
 		if err != nil {
-			fmt.Fprintf(stderr, "wiseyolo eval: against %q: %v\n", *against, err)
+			fmt.Fprintf(stderr, "tinybouncer eval: against %q: %v\n", *against, err)
 			return 2
 		}
 		if !otherFound {
@@ -169,7 +169,7 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, cmp.Table())
 		cpath, err := cmp.Write(*reportsFlag)
 		if err != nil {
-			fmt.Fprintf(stderr, "wiseyolo eval: write comparison report: %v\n", err)
+			fmt.Fprintf(stderr, "tinybouncer eval: write comparison report: %v\n", err)
 			return 2
 		}
 		fmt.Fprintf(stdout, "compare report: %s\n", cpath)
@@ -196,7 +196,7 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	g, err := eval.LoadGates(gatesPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "wiseyolo eval: %v\n", err)
+		fmt.Fprintf(stderr, "tinybouncer eval: %v\n", err)
 		return 1
 	}
 	if v := g.Violations(current); len(v) > 0 {
@@ -212,11 +212,11 @@ func runEval(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 // runSweep evaluates each --sweep variant as a normal run (report + history
 // line each), then prints the operating-point summary table. Only the jev
-// backend supports the WISE_YOLO_JEV_THRESHOLDS override; any other backend
+// backend supports the TINY_BOUNCER_JEV_THRESHOLDS override; any other backend
 // fails with a clear error.
 func runSweep(b backend.Backend, info backend.Info, corpusFlag, reportsFlag, sweepSpec string, stdout, stderr io.Writer) int {
 	if info.Name != "jev" {
-		fmt.Fprintf(stderr, "wiseyolo eval: backend %q has no threshold override support; --sweep requires --backend jev\n", info.Name)
+		fmt.Fprintf(stderr, "tinybouncer eval: backend %q has no threshold override support; --sweep requires --backend jev\n", info.Name)
 		return 1
 	}
 	var variants []string
@@ -228,7 +228,7 @@ func runSweep(b backend.Backend, info backend.Info, corpusFlag, reportsFlag, swe
 
 	set, err := corpusLoader(corpusFlag)
 	if err != nil {
-		fmt.Fprintf(stderr, "wiseyolo eval: %v\n", err)
+		fmt.Fprintf(stderr, "tinybouncer eval: %v\n", err)
 		return 1
 	}
 
@@ -248,26 +248,26 @@ func runSweep(b backend.Backend, info backend.Info, corpusFlag, reportsFlag, swe
 	var rows []row
 	for _, v := range variants {
 		if err := os.Setenv(thresholdsEnv, v); err != nil {
-			fmt.Fprintf(stderr, "wiseyolo eval: set %s: %v\n", thresholdsEnv, err)
+			fmt.Fprintf(stderr, "tinybouncer eval: set %s: %v\n", thresholdsEnv, err)
 			return 2
 		}
 		vb, err := factoryFor("jev")
 		if err != nil {
-			fmt.Fprintf(stderr, "wiseyolo eval: --sweep variant %q: %v\n", v, err)
+			fmt.Fprintf(stderr, "tinybouncer eval: --sweep variant %q: %v\n", v, err)
 			return 1
 		}
 		scores, usage, err := eval.RunBackend(context.Background(), vb, set)
 		if err != nil {
-			fmt.Fprintf(stderr, "wiseyolo eval: internal error: %v\n", err)
+			fmt.Fprintf(stderr, "tinybouncer eval: internal error: %v\n", err)
 			return 2
 		}
 		rep := eval.BuildReport(time.Now(), vb.Info(), set, scores, nil, usage)
 		if _, err := rep.Write(reportsFlag); err != nil {
-			fmt.Fprintf(stderr, "wiseyolo eval: write report: %v\n", err)
+			fmt.Fprintf(stderr, "tinybouncer eval: write report: %v\n", err)
 			return 2
 		}
 		if err := eval.AppendHistory(reportsFlag, rep.History()); err != nil {
-			fmt.Fprintf(stderr, "wiseyolo eval: history %q: %v\n", reportsFlag, err)
+			fmt.Fprintf(stderr, "tinybouncer eval: history %q: %v\n", reportsFlag, err)
 			return 2
 		}
 		rows = append(rows, row{variant: v, history: rep.History()})
@@ -285,7 +285,7 @@ func runSweep(b backend.Backend, info backend.Info, corpusFlag, reportsFlag, swe
 
 // corpusLoader locates and loads the eval corpus. An empty path resolves to
 // data/evalset.json searched upwards from the working directory and then the
-// binary's directory, so `bin/wiseyolo eval` also works from inside the tree.
+// binary's directory, so `bin/tinybouncer eval` also works from inside the tree.
 func corpusLoader(corpusPath string) (*eval.Set, error) {
 	if corpusPath == "" {
 		corpusPath = findCorpus()

@@ -1,10 +1,10 @@
-BINARY := bin/wiseyolo
+BINARY := bin/tinybouncer
 
 .PHONY: build test fmt vet clean eval-mock eval-live eval-api eval-afm doctor-mock ci
 
-# `cmd/wiseyolo` lands in T03; until then `make build` compiles the tree only.
+# `cmd/tinybouncer` lands in T03; until then `make build` compiles the tree only.
 build:
-	if [ -d cmd/wiseyolo ]; then go build -o $(BINARY) ./cmd/wiseyolo; else go build ./...; fi
+	if [ -d cmd/tinybouncer ]; then go build -o $(BINARY) ./cmd/tinybouncer; else go build ./...; fi
 
 test:
 	go test ./...
@@ -29,8 +29,8 @@ eval-mock: build
 # layer 3). It needs a Jev key in the environment; without one it prints a warning
 # and skips safely (exit 0, no network call).
 eval-live: build
-	@if [ -z "$$WISE_YOLO_JEV_API_KEY" ] && [ -z "$$TYPESAFE_API_KEY" ]; then \
-		echo "eval-live: no WISE_YOLO_JEV_API_KEY/TYPESAFE_API_KEY set — skipping (opt-in live run)"; \
+	@if [ -z "$$TINY_BOUNCER_JEV_API_KEY" ] && [ -z "$$TYPESAFE_API_KEY" ]; then \
+		echo "eval-live: no TINY_BOUNCER_JEV_API_KEY/TYPESAFE_API_KEY set — skipping (opt-in live run)"; \
 	else \
 		$(BINARY) eval --backend jev --compare; \
 	fi
@@ -41,10 +41,10 @@ doctor-mock: build
 
 # `eval-api` runs the eval harness against the OpenAI-compatible API backend. It
 # needs an endpoint (e.g. LM Studio serving Gemma-4-E2B at the default model);
-# without WISE_YOLO_API_BASE_URL it prints a warning and skips safely.
+# without TINY_BOUNCER_API_BASE_URL it prints a warning and skips safely.
 eval-api: build
-	@if [ -z "$$WISE_YOLO_API_BASE_URL" ]; then \
-		echo "eval-api: no WISE_YOLO_API_BASE_URL set — skipping (opt-in live run)"; \
+	@if [ -z "$$TINY_BOUNCER_API_BASE_URL" ]; then \
+		echo "eval-api: no TINY_BOUNCER_API_BASE_URL set — skipping (opt-in live run)"; \
 	else \
 		$(BINARY) eval --backend api --compare; \
 	fi

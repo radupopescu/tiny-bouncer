@@ -21,7 +21,7 @@ import (
 	"sort"
 	"sync"
 
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/core"
 )
 
 // Backend is one judgment provider. Classify must return one Verdict per
@@ -65,7 +65,7 @@ type UsageTracker interface {
 }
 
 // Config carries backend-specific configuration values, populated from
-// environment variables named by each backend package (e.g. WISE_YOLO_JEV_*).
+// environment variables named by each backend package (e.g. TINY_BOUNCER_JEV_*).
 type Config struct {
 	Values map[string]string
 }
@@ -100,7 +100,7 @@ func Register(name string, f Factory) { register(name, f, false) }
 // a backend when its factory reports a configuration error, so a stale or
 // absent optional backend cannot turn an otherwise-healthy doctor run into a
 // warning; `doctor --backend <name>` still reports it. Selection itself is
-// unaffected: the backend is always available via --backend / WISE_YOLO_BACKEND.
+// unaffected: the backend is always available via --backend / TINY_BOUNCER_BACKEND.
 func RegisterOptional(name string, f Factory) { register(name, f, true) }
 
 func register(name string, f Factory, optional bool) {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/core"
 )
 
 // Thresholds holds the certainty floors applied to a chat model's self-reported

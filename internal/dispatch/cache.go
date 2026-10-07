@@ -1,5 +1,5 @@
 // Disk-backed response cache (architecture §5 step 2, task T04). Path
-// <UserCacheDir>/wise-yolo/v1/<backend>/<sha256>.json entries, keyed over the
+// <UserCacheDir>/tiny-bouncer/v1/<backend>/<sha256>.json entries, keyed over the
 // normalised command and the backend/versions, store verdict fields plus
 // debug notes, timestamps, and the key itself — never the raw command text.
 package dispatch
@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 // ttl is the entry lifetime; entries older than this are purged during the
@@ -23,21 +23,21 @@ const ttl = 30 * 24 * time.Hour
 
 // cacheDirEnv is a test-only override of the cache root (so that cache tests
 // never touch the developer's real cache directory). It is not a documented
-// user setting; set WISE_YOLO_CACHE=false (or --no-cache) to turn the cache
+// user setting; set TINY_BOUNCER_CACHE=false (or --no-cache) to turn the cache
 // off instead.
-const cacheDirEnv = "WISE_YOLO_CACHE_DIR"
+const cacheDirEnv = "TINY_BOUNCER_CACHE_DIR"
 
 // cacheEnv is the documented default-state setting (architecture §6):
 // response cache on/off (check only), on by default; --cache/--no-cache
 // override both.
-const cacheEnv = "WISE_YOLO_CACHE"
+const cacheEnv = "TINY_BOUNCER_CACHE"
 
 // Cache is the disk-backed CacheHook. A Cache whose root could not be
 // resolved behaves like NoCache: lookups miss, stores are dropped, and the
 // check pipeline proceeds normally — a cache failure must never block
 // screening. Concurrency is out of scope (one process per check).
 type Cache struct {
-	// root is <UserCacheDir>/wise-yolo/v1; empty disables the cache
+	// root is <UserCacheDir>/tiny-bouncer/v1; empty disables the cache
 	// entirely (no reads, no writes, eager creation of nothing).
 	root string
 }
@@ -48,7 +48,7 @@ type Cache struct {
 func NewCache() *Cache {
 	c := new(Cache)
 	if dir, err := os.UserCacheDir(); err == nil {
-		c.root = filepath.Join(dir, "wise-yolo", "v1")
+		c.root = filepath.Join(dir, "tiny-bouncer", "v1")
 	} else {
 		// Unresolvable user cache dir: disable rather than fail the check.
 		return c
@@ -189,7 +189,7 @@ func purge(root string) {
 }
 
 // DefaultCacheEnabled reports whether plain `check` runs with the cache on by
-// default, honouring WISE_YOLO_CACHE (architecture §6); the --cache/--no-cache
+// default, honouring TINY_BOUNCER_CACHE (architecture §6); the --cache/--no-cache
 // flags override both this and the env default.
 func DefaultCacheEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(backend.Env(cacheEnv, ""))) {

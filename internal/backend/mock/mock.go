@@ -28,8 +28,8 @@ import (
 	"context"
 	"strings"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 func init() {

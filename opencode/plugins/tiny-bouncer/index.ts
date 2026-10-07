@@ -1,7 +1,7 @@
-// Wise Yolo — OpenCode V2 plugin (architecture §8).
+// Tiny Bouncer — OpenCode V2 plugin (architecture §8).
 //
 // Registers the `permission.evaluate` hook, screens shell command batches by
-// spawning `wiseyolo check` once per permission event, and maps the verdict
+// spawning `tinybouncer check` once per permission event, and maps the verdict
 // onto the event's effect (strictness-only unless `grantFromAsk` is set).
 // Fails safe to `options.onError` (default `ask`) on any outage.
 //
@@ -37,7 +37,7 @@ export interface PluginContext {
 }
 
 export default Plugin.define({
-	id: "wise-yolo",
+	id: "tiny-bouncer",
 
 	async setup(ctx) {
 		const hookCtx = ctx as unknown as PluginContext;
@@ -47,7 +47,7 @@ export default Plugin.define({
 		// Doctor at setup, asynchronous, best effort (architecture §8):
 		// never blocks startup, warns at most once while loaded.
 		void doctorBestEffort(options).catch(() => {
-			warnOnce("wiseyolo: screening will fall back to ask");
+			warnOnce("tinybouncer: screening will fall back to ask");
 		});
 
 		// One registration; OpenCode disposes it on unload.
@@ -117,7 +117,7 @@ type CheckRun =
 	| { ok: false; reason: string; detail: string };
 
 /**
- * Screen one shell permission event. Exactly one spawn of `wiseyolo check`
+ * Screen one shell permission event. Exactly one spawn of `tinybouncer check`
  * per permission event; the batch travels on stdin; the child is killed after
  * `options.timeoutMs`. Exported for the test harness.
  */
@@ -139,7 +139,7 @@ export async function screen(
 		// Never log raw commands — only the hash and verdict effects.
 		logger.log(
 			JSON.stringify({
-				plugin: "wise-yolo",
+				plugin: "tiny-bouncer",
 				sessionID: event.sessionID,
 				commandHash: `sha256:${commandHash(event.resources)}`,
 				verdicts: run.contract.results.map((r) => r.verdict),
@@ -256,7 +256,7 @@ export function runCheck(
 
 /**
  * The backend the CLI would select: the plugin option first, then
- * WISE_YOLO_BACKEND, then the CLI default (jev). Used to scope the setup
+ * TINY_BOUNCER_BACKEND, then the CLI default (jev). Used to scope the setup
  * doctor call so an unrelated optional backend (api, afm) that is simply not
  * running cannot raise a false "fall back to ask" warning.
  */
@@ -264,7 +264,7 @@ export function selectedBackend(
 	options: { backend?: string },
 	env: Record<string, string | undefined> = process.env,
 ): string {
-	return options.backend ?? env["WISE_YOLO_BACKEND"] ?? "jev";
+	return options.backend ?? env["TINY_BOUNCER_BACKEND"] ?? "jev";
 }
 
 /** Doctor arguments, scoped to the selected backend. */
@@ -304,14 +304,14 @@ async function doctorBestEffort(options: Options & typeof defaultOptions): Promi
 	});
 	const reports = parseDoctor(raw);
 	if (reports === undefined || reports.length === 0) {
-		warnOnce("wiseyolo: screening will fall back to ask");
+		warnOnce("tinybouncer: screening will fall back to ask");
 		return;
 	}
 	// doctor's own verdict: exit 0 only when every reported backend is ok.
 	const allOk = reports.every((r) => r.ok);
 	if (!allOk) {
 		// Unhealthy (e.g. a missing key on the default backend): warn once.
-		warnOnce("wiseyolo: screening will fall back to ask");
+		warnOnce("tinybouncer: screening will fall back to ask");
 		return;
 	}
 	const facts: string[] = [];
@@ -321,7 +321,7 @@ async function doctorBestEffort(options: Options & typeof defaultOptions): Promi
 		const thresholds = typeof r.thresholds_version === "string" ? r.thresholds_version : "?";
 		facts.push(`backend ${r.backend}: model ${model}, policy ${policy}, thresholds ${thresholds}`);
 	}
-	logger.log(`wiseyolo: ${facts.join("; ")}`);
+	logger.log(`tinybouncer: ${facts.join("; ")}`);
 }
 
 interface DoctorReport {

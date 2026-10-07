@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
-	"wiseyolo/internal/backend"
-	_ "wiseyolo/internal/backend/mock" // register the offline backend for the runner test
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	_ "tinybouncer/internal/backend/mock" // register the offline backend for the runner test
+	"tinybouncer/internal/core"
 )
 
-// withCacheRoot points WISE_YOLO_CACHE_DIR at a fresh temporary directory for
+// withCacheRoot points TINY_BOUNCER_CACHE_DIR at a fresh temporary directory for
 // one test (the test-only override documented on cacheDirEnv).
 func withCacheRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	t.Setenv("WISE_YOLO_CACHE_DIR", root)
+	t.Setenv("TINY_BOUNCER_CACHE_DIR", root)
 	return root
 }
 
@@ -148,7 +148,7 @@ func TestCacheTTLScan(t *testing.T) {
 	if err := os.Chtimes(p, old, old); err != nil {
 		t.Fatalf("chtimes: %v", err)
 	}
-	root := os.Getenv("WISE_YOLO_CACHE_DIR")
+	root := os.Getenv("TINY_BOUNCER_CACHE_DIR")
 	purge(root)
 	if _, err := os.Stat(p); err == nil {
 		t.Fatal("purge left an over-TTL entry in place")
@@ -156,7 +156,7 @@ func TestCacheTTLScan(t *testing.T) {
 
 	// A fresh entry survives the scan.
 	storeVerdict(t, c, "git log")
-	root = os.Getenv("WISE_YOLO_CACHE_DIR")
+	root = os.Getenv("TINY_BOUNCER_CACHE_DIR")
 	purge(root)
 	if _, ok := c.Lookup("git log", testBackend, testModel, "mock-0", "mock-0"); !ok {
 		t.Error("purge removed a fresh entry")
@@ -198,7 +198,7 @@ func TestCacheNoCommandTextPersisted(t *testing.T) {
 	}
 	// Grep the whole cache dir for the secret: nothing may match.
 	var found []string
-	root = os.Getenv("WISE_YOLO_CACHE_DIR")
+	root = os.Getenv("TINY_BOUNCER_CACHE_DIR")
 	if err := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
@@ -230,15 +230,15 @@ func TestCacheDisabledBehavesAsNoCache(t *testing.T) {
 
 func TestDefaultCacheEnabledEnv(t *testing.T) {
 	for _, on := range []string{"", "1", "true", "on", "yes"} {
-		t.Setenv("WISE_YOLO_CACHE", on)
+		t.Setenv("TINY_BOUNCER_CACHE", on)
 		if !DefaultCacheEnabled() {
-			t.Errorf("WISE_YOLO_CACHE=%q: default reported off, want on", on)
+			t.Errorf("TINY_BOUNCER_CACHE=%q: default reported off, want on", on)
 		}
 	}
 	for _, off := range []string{"0", "false", "off", "no"} {
-		t.Setenv("WISE_YOLO_CACHE", off)
+		t.Setenv("TINY_BOUNCER_CACHE", off)
 		if DefaultCacheEnabled() {
-			t.Errorf("WISE_YOLO_CACHE=%q: default reported on, want off", off)
+			t.Errorf("TINY_BOUNCER_CACHE=%q: default reported on, want off", off)
 		}
 	}
 }

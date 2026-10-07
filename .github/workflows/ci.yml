@@ -27,7 +27,7 @@ jobs:
         run: go test ./...
 
       - name: Eval (mock backend, no network)
-        run: go run ./cmd/wiseyolo eval --backend mock
+        run: go run ./cmd/tinybouncer eval --backend mock
 
       - name: Doctor (mock backend, no network)
-        run: go run ./cmd/wiseyolo doctor --backend mock
+        run: go run ./cmd/tinybouncer doctor --backend mock

@@ -13,9 +13,9 @@ import (
 	"io"
 	"os"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
-	"wiseyolo/internal/dispatch"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
+	"tinybouncer/internal/dispatch"
 )
 
 type failingBackend struct{}

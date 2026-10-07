@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 // Hand-computed unit tests for the T15 cross-backend comparison. Every

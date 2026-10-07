@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"wiseyolo/internal/dispatch"
+	"tinybouncer/internal/dispatch"
 )
 
 // This file holds the subprocess contract tests for the check output
@@ -22,7 +22,7 @@ import (
 var checkBin, failBin string
 
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "wiseyolo-contract")
+	dir, err := os.MkdirTemp("", "tinybouncer-contract")
 	if err != nil {
 		panic(err)
 	}
@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 			panic("go build " + target + ": " + string(b))
 		}
 	}
-	checkBin = filepath.Join(dir, "wiseyolo")
+	checkBin = filepath.Join(dir, "tinybouncer")
 	failBin = filepath.Join(dir, "failcheck")
 	build(checkBin, ".")
 	build(failBin, filepath.Join("..", "..", "internal", "dispatch", "testdata", "failcheck"))
@@ -49,11 +49,11 @@ func scrubKeys(env []string) []string {
 	for _, kv := range env {
 		switch {
 		case strings.HasPrefix(kv, "TYPESAFE_API_KEY="),
-			strings.HasPrefix(kv, "WISE_YOLO_JEV_API_KEY="),
-			strings.HasPrefix(kv, "WISE_YOLO_BACKEND="),
-			strings.HasPrefix(kv, "WISE_YOLO_CACHE="),
-			strings.HasPrefix(kv, "WISE_YOLO_CACHE_DIR="),
-			strings.HasPrefix(kv, "WISE_YOLO_JEV_THRESHOLDS="):
+			strings.HasPrefix(kv, "TINY_BOUNCER_JEV_API_KEY="),
+			strings.HasPrefix(kv, "TINY_BOUNCER_BACKEND="),
+			strings.HasPrefix(kv, "TINY_BOUNCER_CACHE="),
+			strings.HasPrefix(kv, "TINY_BOUNCER_CACHE_DIR="),
+			strings.HasPrefix(kv, "TINY_BOUNCER_JEV_THRESHOLDS="):
 		default:
 			out = append(out, kv)
 		}
@@ -285,10 +285,10 @@ func TestCheckBinaryRouting(t *testing.T) {
 }
 
 func TestCheckBinaryBackendEnvDefaultHonoured(t *testing.T) {
-	env := append(os.Environ(), "WISE_YOLO_BACKEND=nope")
+	env := append(os.Environ(), "TINY_BOUNCER_BACKEND=nope")
 	code, _, stderr := runBinary(t, checkBin, fixture(t, "empty.json"), env, "check")
 	if code != 1 || !strings.Contains(stderr, "unknown backend") {
-		t.Fatalf("exit=%d stderr=%q; WISE_YOLO_BACKEND must set the flag default", code, stderr)
+		t.Fatalf("exit=%d stderr=%q; TINY_BOUNCER_BACKEND must set the flag default", code, stderr)
 	}
 }
 
@@ -319,13 +319,13 @@ func TestFailcheckUnjudgedAsk(t *testing.T) {
 }
 
 // The flags are effective since task T04: --cache/--no-cache override the
-// WISE_YOLO_CACHE default. This test pins the override semantics with a
+// TINY_BOUNCER_CACHE default. This test pins the override semantics with a
 // test-local cache directory.
 func TestCheckBinaryCacheFlagsOverride(t *testing.T) {
 	root := t.TempDir()
 	env := append(scrubKeys(os.Environ()),
-		"WISE_YOLO_CACHE_DIR="+root,
-		"WISE_YOLO_CACHE=false")
+		"TINY_BOUNCER_CACHE_DIR="+root,
+		"TINY_BOUNCER_CACHE=false")
 	stdin := fixture(t, "happy.json")
 	// Env says off; --cache forces it on. First run is cold, second cached.
 	code, stdout, stderr := runBinary(t, checkBin, stdin, env, "check", "--backend", "mock", "--cache")
@@ -340,7 +340,7 @@ func TestCheckBinaryCacheFlagsOverride(t *testing.T) {
 		t.Fatalf("--cache second run: exit=%d, want cached=true", code)
 	}
 	// --no-cache overrides a populated cache.
-	envOn := append(env, "WISE_YOLO_CACHE=true")
+	envOn := append(env, "TINY_BOUNCER_CACHE=true")
 	code, stdout, _ = runBinary(t, checkBin, stdin, envOn, "check", "--backend", "mock", "--no-cache")
 	if code != 0 {
 		t.Fatalf("--no-cache: exit=%d", code)

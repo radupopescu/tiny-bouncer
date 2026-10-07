@@ -13,14 +13,14 @@ import (
 // override, and the guarantee that raw command text never reaches the cache.
 
 // cacheEnv returns an environment copy pointing the cache at a fresh test
-// directory and clearing WISE_YOLO_CACHE so flag and env defaults do not
+// directory and clearing TINY_BOUNCER_CACHE so flag and env defaults do not
 // fight.
 func cacheEnv(t *testing.T) []string {
 	t.Helper()
 	root := t.TempDir()
 	return append(scrubKeys(os.Environ()),
-		"WISE_YOLO_CACHE_DIR="+root,
-		"WISE_YOLO_CACHE=")
+		"TINY_BOUNCER_CACHE_DIR="+root,
+		"TINY_BOUNCER_CACHE=")
 }
 
 func runCheck(t *testing.T, env []string, args ...string) (contract, string) {
@@ -74,7 +74,7 @@ func TestCheckBinaryCacheContract(t *testing.T) {
 
 func TestCheckBinaryCacheNeverStoresCommandText(t *testing.T) {
 	env := cacheEnv(t)
-	secret := "WISEYOLO-SEKRIT-e4b1f77c"
+	secret := "TINYBOUNCER-SEKRIT-e4b1f77c"
 
 	_, _, stderr := runBinary(t, checkBin,
 		`{"commands":["git status`+secret+`-probe"]}`,
@@ -85,7 +85,7 @@ func TestCheckBinaryCacheNeverStoresCommandText(t *testing.T) {
 
 	root := ""
 	for _, kv := range env {
-		if s, ok := strings.CutPrefix(kv, "WISE_YOLO_CACHE_DIR="); ok {
+		if s, ok := strings.CutPrefix(kv, "TINY_BOUNCER_CACHE_DIR="); ok {
 			root = s
 		}
 	}

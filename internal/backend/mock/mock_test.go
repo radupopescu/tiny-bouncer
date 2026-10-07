@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 // TestInfo exercises the backend identity facts (architecture §5).

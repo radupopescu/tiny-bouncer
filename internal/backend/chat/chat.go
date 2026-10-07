@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 // init registers the two chat backends. Both are optional: they are only used
@@ -24,14 +24,14 @@ func init() {
 }
 
 const (
-	apiBaseURLEnv = "WISE_YOLO_API_BASE_URL"
-	apiModelEnv   = "WISE_YOLO_API_MODEL"
-	apiKeyEnv     = "WISE_YOLO_API_KEY"
-	afmExecEnv    = "WISE_YOLO_AFM_EXECUTABLE"
-	afmModelEnv   = "WISE_YOLO_AFM_MODEL"
+	apiBaseURLEnv = "TINY_BOUNCER_API_BASE_URL"
+	apiModelEnv   = "TINY_BOUNCER_API_MODEL"
+	apiKeyEnv     = "TINY_BOUNCER_API_KEY"
+	afmExecEnv    = "TINY_BOUNCER_AFM_EXECUTABLE"
+	afmModelEnv   = "TINY_BOUNCER_AFM_MODEL"
 
-	concurrencyEnv = "WISE_YOLO_CHAT_CONCURRENCY"
-	timeoutEnv     = "WISE_YOLO_CHAT_TIMEOUT_MS"
+	concurrencyEnv = "TINY_BOUNCER_CHAT_CONCURRENCY"
+	timeoutEnv     = "TINY_BOUNCER_CHAT_TIMEOUT_MS"
 )
 
 const (
@@ -149,8 +149,8 @@ func transportTuning(lookup func(string) string) (int, time.Duration, error) {
 // file and returns its path. A deterministic per-user path is used so repeated
 // invocations reuse it; the write is atomic (temp + rename).
 func writeAppleSchema() (string, error) {
-	path := filepath.Join(os.TempDir(), fmt.Sprintf("wiseyolo-afm-verdict-%d.json", os.Getuid()))
-	f, err := os.CreateTemp(filepath.Dir(path), "wiseyolo-afm-*.json")
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("tinybouncer-afm-verdict-%d.json", os.Getuid()))
+	f, err := os.CreateTemp(filepath.Dir(path), "tinybouncer-afm-*.json")
 	if err != nil {
 		return "", err
 	}

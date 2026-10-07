@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
-	"wiseyolo/internal/policy"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
+	"tinybouncer/internal/policy"
 )
 
 // MaxCommands is the largest batch accepted from a single check invocation

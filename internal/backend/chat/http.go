@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"wiseyolo/internal/backend"
+	"tinybouncer/internal/backend"
 )
 
 // maxResponseBytes bounds a model answer so a misbehaving server cannot exhaust

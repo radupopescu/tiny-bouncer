@@ -1,4 +1,4 @@
-# Wise Yolo — Implementation Plan
+# Tiny Bouncer — Implementation Plan
 
 Version: 1.0 (2026-10-02)
 Authority for behaviour: `doc/architecture.md`. This file defines the task queue, the
@@ -38,10 +38,10 @@ One task per session; a session must not start a second task.
 
 | Requirement | Notes |
 |---|---|
-| Go ≥ 1.23 | module `wiseyolo`, **stdlib only** (no `go get` in any task) |
+| Go ≥ 1.23 | module `tinybouncer`, **stdlib only** (no `go get` in any task) |
 | Node ≥ 20, TypeScript | only for the plugin task (T11) |
 | `make`, `git` | builds and commits |
-| Jev API key | only T10 (live calibration); set as `TYPESAFE_API_KEY` or `WISE_YOLO_JEV_API_KEY` |
+| Jev API key | only T10 (live calibration); set as `TYPESAFE_API_KEY` or `TINY_BOUNCER_JEV_API_KEY` |
 | OpenCode V2 | only T12 smoke test (manual, user-driven) |
 
 ## 3. Dependency graph
@@ -91,7 +91,7 @@ on-device model.
 | T14 | API backend (OpenAI-compatible) + AFM backend | T01 | — | done (T14-api-afm) | 287828b |
 | T15 | Cross-backend comparison (`eval --against`) | T14 | — | done (T15-compare) | 850ff2f |
 | T16 | Live API/AFM calibration + comparison facts **(needs LM Studio + model)** | T14, T15 | — | done (T16-live) | f43eeba |
-| T17 | Rename project to tiny-bouncer | T16 | — | in-progress (T17-rename) | — |
+| T17 | Rename project to tiny-bouncer | T16 | — | done (T17-rename) | — |
 
 ---
 
@@ -105,7 +105,7 @@ task implements against them, not redefines them.
 
 **Requirements** (architecture §2, §5, §7):
 
-- `go.mod`: module `wiseyolo`, `go 1.23`. Zero non-stdlib imports anywhere, forever.
+- `go.mod`: module `tinybouncer`, `go 1.23`. Zero non-stdlib imports anywhere, forever.
 - `.gitignore`: `bin/`, `reports/eval-*.json`, test scratch dirs. Keep
   `reports/history.jsonl` tracked later (do not ignore it).
 - `internal/core`:
@@ -123,7 +123,7 @@ task implements against them, not redefines them.
 - `internal/policy`: pure `Aggregate([]core.Verdict) core.Verdict` and
   `AggregateEffect(effects []core.Effect) core.Effect`: any `deny` → deny; else any
   `ask` → ask; else allow; empty → allow with empty reason. Table-driven unit tests.
-- `Makefile`: `build` (→ `bin/wiseyolo`), `test`, `fmt`, `vet`, `clean`.
+- `Makefile`: `build` (→ `bin/tinybouncer`), `test`, `fmt`, `vet`, `clean`.
 
 **Acceptance criteria**:
 
@@ -174,7 +174,7 @@ self-test floor (architecture §5ter, §5.2).
 **Goal**: the stable output contract lives, consumed by the eval harness and the plugin
 (architecture §3, §5 pipeline steps 1, 4, 5 — caching is task T04).
 
-**Files**: `cmd/wiseyolo/main.go`, `cmd/wiseyolo/*_test.go` (subprocess contract tests
+**Files**: `cmd/tinybouncer/main.go`, `cmd/tinybouncer/*_test.go` (subprocess contract tests
 + built binary), `internal/dispatch/*.go`,
 `internal/dispatch/testdata/*.json`, `internal/policy/*` additions if needed.
 
@@ -182,7 +182,7 @@ self-test floor (architecture §5ter, §5.2).
 
 - Subcommand routing on `os.Args[1]`: `check` (implemented here), `eval` (T09),
   `doctor` (T07); unknown/missing → usage on stderr, exit 1.
-- `check` flags: `--backend` (default from `WISE_YOLO_BACKEND`, default `jev`;
+- `check` flags: `--backend` (default from `TINY_BOUNCER_BACKEND`, default `jev`;
   unknown backend → exit 1), `--cache` / `--no-cache` (parsed here; wired to the T04
   store — treat as no-op, cache disabled, until T04 lands).
 - Input: JSON `{"commands": [...]}` on stdin; reject > 256 commands (exit 1, valid
@@ -206,7 +206,7 @@ self-test floor (architecture §5ter, §5.2).
       happy path; empty array; oversized input (exit 1); unknown backend (exit 1);
       malformed stdin (exit 1); backend `Classify` error → unjudged entries ≡ `ask`
       with failure reason (exit 0)
-- [x] `wiseyolo check` with `--backend mock` on
+- [x] `tinybouncer check` with `--backend mock` on
       `{"commands":["git status","rm -rf /"]}` returns aggregate `deny` with two
       index-aligned results (verified in the contract test)
 - [x] `meta.backend_model` / `policy_version` / `thresholds_version` equal the
@@ -223,7 +223,7 @@ unaffected.
 
 **Requirements**:
 
-- Path: `os.UserCacheDir()`/`wise-yolo/v1/<backend>/<sha256>.json`; key =
+- Path: `os.UserCacheDir()`/`tiny-bouncer/v1/<backend>/<sha256>.json`; key =
   `sha256("v1|" + normalised + "|" + backend + "|" + requested_model + "|" +
   policy_version + "|" + thresholds_version)`.
 - Entry stores verdict fields, backend raw answer notes (debug), timestamps —
@@ -261,17 +261,17 @@ unaffected.
   (`type` + `noul` / `choice`+`probabilities`+`confidence` / `score`+`legend`+
   `probabilities`+`confidence`); `Response{Model string, Answers map[string]Answer,
   Usage{InputTokens, OutputTokens int}}`.
-- Endpoint `WISE_YOLO_JEV_BASE_URL` (default `https://api.typesafe.ai`), also honouring
+- Endpoint `TINY_BOUNCER_JEV_BASE_URL` (default `https://api.typesafe.ai`), also honouring
   `TYPESAFE_ENDPOINT` fallback; path `/v1/systemone`; `Authorization: Bearer` from
-  `WISE_YOLO_JEV_API_KEY` then `TYPESAFE_API_KEY`; missing key → typed config error.
+  `TINY_BOUNCER_JEV_API_KEY` then `TYPESAFE_API_KEY`; missing key → typed config error.
 - Retry policy: retriable statuses {429, 502, 503, 504, 529}; exponential backoff
   100 ms base ×2, cap 2 s, +jitter; honour `retry-after` header when present;
-  default 3 total attempts (`WISE_YOLO_RETRIES` overridable). Never retry 401 / 422 /
+  default 3 total attempts (`TINY_BOUNCER_RETRIES` overridable). Never retry 401 / 422 /
   other 4xx. Attempts are recorded for `meta`.
 - Error taxonomy as typed errors for: auth (401), rate limit, overloaded (529),
   invalid request (422), timeout, network, unusable body (bad JSON). Each carries a
   one-line human message plus any body snippet for 422.
-- Context timeout per request (default 15 000 ms; `WISE_YOLO_TIMEOUT_MS`).
+- Context timeout per request (default 15 000 ms; `TINY_BOUNCER_TIMEOUT_MS`).
 - **Tests use `httptest.Server` only.** No live network in any unit test.
 
 **Acceptance criteria**:
@@ -300,18 +300,18 @@ thresholds `tv1`), registered in the registry.
   `exfiltration`, `service_disruption`, `global_install`) + one `severity` score
   (levels 0–4 as authored in architecture §5bis) in one questions map — instructions
   and criteria verbatim from the architecture (they are the reviewed policy).
-- Bound concurrency: default 5 in flight (`WISE_YOLO_CONCURRENCY`).
+- Bound concurrency: default 5 in flight (`TINY_BOUNCER_CONCURRENCY`).
 - Route (`route.go`, constants exported for sweep env overrides):
   `deny := maxHazard ≥ 0.85 || severity ≥ 3.0`; `ask := maxHazard ≥ 0.50 ||
   severity ≥ 2.0`; else `allow`. Sweep env:
-  `WISE_YOLO_JEV_THRESHOLDS="deny_hazard=…,deny_severity=…,ask_hazard=…,ask_severity=…"`
+  `TINY_BOUNCER_JEV_THRESHOLDS="deny_hazard=…,deny_severity=…,ask_hazard=…,ask_severity=…"`
   parsed strictly (unknown key → config error). Thresholds live only here (never in
   question text).
 - Verdict fields: top hazard name(s) in `Categories` (e.g. `["exfiltration"]`), the
   route rule fired as `Reason` (one sentence, includes the decisive probability),
   `Confidence` = the governing probability. Certainty discipline (architecture §5.3)
   is inherent: a deny only fires above its gates.
-- `Info`: name `jev`, model = configured (`WISE_YOLO_JEV_MODEL`, default `jev-latest`),
+- `Info`: name `jev`, model = configured (`TINY_BOUNCER_JEV_MODEL`, default `jev-latest`),
   `PolicyVersion = "jev-policy-1.0"`, `ThresholdsVersion = "tv1"`. After any response,
   `Classify`'s reported model is the **resolved** response `model` (e.g.
   `jev-1.13.0`) — use it for `meta.backend_model`.
@@ -326,7 +326,7 @@ thresholds `tv1`), registered in the registry.
 - [x] Backend end-to-end test over httptest server: 3-command batch → 3 requests
       (≤5 concurrency), index-aligned verdicts, category/reason content asserted,
       resolved model recorded on `Info` after run
-- [x] Env-override test: `WISE_YOLO_JEV_THRESHOLDS` changes the route outcome on a
+- [x] Env-override test: `TINY_BOUNCER_JEV_THRESHOLDS` changes the route outcome on a
       pinned probability; unknown key errors
 - [x] Battery texts in code are verbatim the architecture §5bis tables (reviewed by
       diff in this task)
@@ -336,11 +336,11 @@ thresholds `tv1`), registered in the registry.
 **Goal**: health reporting consumed by the user and by the plugin at setup
 (architecture §3).
 
-**Files**: `cmd/wiseyolo/doctor.go` (or `main.go` wiring), `cmd/wiseyolo/doctor_test.go`.
+**Files**: `cmd/tinybouncer/doctor.go` (or `main.go` wiring), `cmd/tinybouncer/doctor_test.go`.
 
 **Requirements**:
 
-- `wiseyolo doctor [--backend <name>]`: default all registered backends. One JSON
+- `tinybouncer doctor [--backend <name>]`: default all registered backends. One JSON
   object per backend on stdout:
   `{"backend":"jev","ok":false,"model":"jev-latest","policy_version":"jev-policy-1.0",
     "thresholds_version":"tv1","error":"401 Unauthorized: invalid API key"}`.
@@ -349,7 +349,7 @@ thresholds `tv1`), registered in the registry.
 
 **Acceptance criteria**:
 
-- [x] Contract test with `WISE_YOLO_JEV_BASE_URL` pointed at httptest: healthy path
+- [x] Contract test with `TINY_BOUNCER_JEV_BASE_URL` pointed at httptest: healthy path
       (exit 0, `ok:true`), 401 path (exit 1, error populated), mock backend always ok,
       unknown backend exits 1; **jumbled ordering must not occur** (stable output order)
 - [x] No key configured + jev selected → exit 1 with an informative missing-key error
@@ -398,11 +398,11 @@ corpus). ~200 commands.
 
 ## T09 — Eval harness, metrics, reports, history
 
-**Goal**: `wiseyolo eval` measured over the corpus with tracked history and gates
+**Goal**: `tinybouncer eval` measured over the corpus with tracked history and gates
 (architecture §3 eval, §7 metrics/gates).
 
 **Files**: `internal/eval/metrics.go`, `internal/eval/metrics_test.go`,
-`internal/eval/run.go`, `internal/eval/report.go`, `cmd/wiseyolo/eval.go`
+`internal/eval/run.go`, `internal/eval/report.go`, `cmd/tinybouncer/eval.go`
 (+ eval contract tests; Makefile `eval-mock` target).
 
 **Requirements** (using architecture §7 exact definitions):
@@ -426,7 +426,7 @@ corpus). ~200 commands.
   deltas; apply `reports/gates.json` when present (FNR=0, FPR≤0.15, accuracy3≥0.80,
   lat_p95≤1200 currently proposed pending T10; if the file is absent, print gates
   unchanged note, exit 0). Violation → exit non-zero.
-- `eval --sweep`: iterate threshold variants via `WISE_YOLO_JEV_THRESHOLDS` (jev only;
+- `eval --sweep`: iterate threshold variants via `TINY_BOUNCER_JEV_THRESHOLDS` (jev only;
   error for backends without override support), each as a normal report row + sweep
   table; no recommendation logic beyond printing the operating point table.
 - Makefile targets: `eval-mock` (build + run eval `--backend mock`, no network).
@@ -455,10 +455,10 @@ usage tokens, latency), session notes in the commit message.
 
 **Requirements**:
 
-1. `wiseyolo doctor` green with the user's key; record the resolved model.
-2. `wiseyolo eval --backend jev` (single live run), inspect per-record table:
+1. `tinybouncer doctor` green with the user's key; record the resolved model.
+2. `tinybouncer eval --backend jev` (single live run), inspect per-record table:
    enumerate every FN (dangerous auto-allowed) and every FP (safe interrupted).
-3. Calibrate: adjust `WISE_YOLO_JEV_THRESHOLDS` (`--sweep`) aiming at FNR = 0 with
+3. Calibrate: adjust `TINY_BOUNCER_JEV_THRESHOLDS` (`--sweep`) aiming at FNR = 0 with
    FPR ≤ 0.15; only then consider raising precision. If a threshold change alone
    cannot reach FNR 0, propose a battery wording fix (a genuine misclassification bug,
    not a label opinion) — do **not** edit the battery in this task; record complaints
@@ -485,14 +485,14 @@ usage tokens, latency), session notes in the commit message.
 
 ## T11 — OpenCode V2 plugin
 
-**Goal**: the `permission.evaluate` hook shell around `wiseyolo check`
+**Goal**: the `permission.evaluate` hook shell around `tinybouncer check`
 (architecture §8; plugin docs
 <https://opencode.ai/v2/docs/build/plugins#permissions>).
 
-**Files**: `opencode/plugins/wise-yolo/index.ts`,
-`opencode/plugins/wise-yolo/mapping.ts` (pure logic),
-`opencode/plugins/wise-yolo/tsconfig.json`, `opencode/plugins/wise-yolo/package.json`,
-`opencode/plugins/wise-yolo/test/run.ts`, README registration snippet section.
+**Files**: `opencode/plugins/tiny-bouncer/index.ts`,
+`opencode/plugins/tiny-bouncer/mapping.ts` (pure logic),
+`opencode/plugins/tiny-bouncer/tsconfig.json`, `opencode/plugins/tiny-bouncer/package.json`,
+`opencode/plugins/tiny-bouncer/test/run.ts`, README registration snippet section.
 
 **Requirements**:
 
@@ -500,8 +500,8 @@ usage tokens, latency), session notes in the commit message.
   No other runtime deps. TypeScript strict mode.
 - `setup(ctx)`:
   - register `ctx.permission.hook("evaluate", ...)`; ignore actions other than `shell`.
-  - Spawn `wiseyolo check --backend mock...` — **default backend jev**; the plugin does
-    not choose backends (that env/flag matters here) — it always invokes `wiseyolo
+  - Spawn `tinybouncer check --backend mock...` — **default backend jev**; the plugin does
+    not choose backends (that env/flag matters here) — it always invokes `tinybouncer
     check` without `--backend` unless the user's `opencode.jsonc` sets a `backend`
     plugin option; one `spawn` per event, all `event.resources` sent as the batch on
     stdin; kill after `options.timeoutMs` (default 20000).
@@ -512,7 +512,7 @@ usage tokens, latency), session notes in the commit message.
   - `onError` (default `ask`) when: spawn fails (ENOENT), non-zero exit with no
     contract JSON, JSON parse failure, timeout, or `meta` missing/unusable. Apply
     `event.effect = options.onError` with a human message naming the outage.
-  - `onSetup`: run `wiseyolo doctor --backend mock`-style check — actually
+  - `onSetup`: run `tinybouncer doctor --backend mock`-style check — actually
     `doctor` without args — asynchronously; unhealthy → warn once
     ("screening will fall back to ask") in the plugin log; never block startup.
   - `logDecisions` (default false): log `{sessionID, commandHash (sha256 of the joined
@@ -524,12 +524,12 @@ usage tokens, latency), session notes in the commit message.
 - [ ] `npm run typecheck` (`tsc --noEmit`) passes in the plugin dir
 - [ ] `npm run test`: `mapEffect()` unit table (deny/ask/allow/passthrough outcome of
       non-allow effects + `grantFromAsk` variants + malformed classifier output) and
-      spawn end-to-end against the **built `wiseyolo` mock backend** batch:
+      spawn end-to-end against the **built `tinybouncer` mock backend** batch:
       dangerous batch → deny; safe batch → untouched; missing binary → `onError` path
       resolves to `ask` with a message
 - [ ] README documents: plugin options table, `opencode.jsonc` snippet
-      (`"plugins": [{"package": "./opencode/plugins/wise-yolo"}]` with options example),
-      binary build requirement, `WISE_YOLO_*` envs, and a manual TUI verification
+      (`"plugins": [{"package": "./opencode/plugins/tiny-bouncer"}]` with options example),
+      binary build requirement, `TINY_BOUNCER_*` envs, and a manual TUI verification
       checklist (approval prompt appears with classifier `ask`, denied command shows
       rejection message)
 - [ ] No network access in plugin tests (mock backend only)
@@ -624,10 +624,10 @@ Fully testable offline (no network, no Apple Intelligence; Linux CI green).
 `internal/backend/chat/errors.go`, `internal/backend/chat/chat_test.go`,
 `internal/backend/chat/route_test.go`, `internal/backend/chat/http_test.go`,
 `internal/backend/chat/respond_test.go`, `internal/backend/chat/testdata/fakefm.sh`,
-`cmd/wiseyolo/main.go` (blank import), `internal/backend/backend.go` (optional
-backend registry), `cmd/wiseyolo/doctor.go` (skip unconfigured optional backends),
-`cmd/wiseyolo/doctor_test.go` (api/afm doctor paths),
-`opencode/plugins/wise-yolo/index.ts` + test (scoped doctor),
+`cmd/tinybouncer/main.go` (blank import), `internal/backend/backend.go` (optional
+backend registry), `cmd/tinybouncer/doctor.go` (skip unconfigured optional backends),
+`cmd/tinybouncer/doctor_test.go` (api/afm doctor paths),
+`opencode/plugins/tiny-bouncer/index.ts` + test (scoped doctor),
 `Makefile` (gated `eval-api`, `eval-afm`), `README.md`,
 `doc/architecture.md` (§5quater, §6, §10), `doc/plan.md` row.
 
@@ -649,11 +649,11 @@ backend registry), `cmd/wiseyolo/doctor.go` (skip unconfigured optional backends
 
 | id | transport | config | model |
 |---|---|---|---|
-| `api` | HTTP Chat Completions | `WISE_YOLO_API_BASE_URL` (required, e.g. `http://127.0.0.1:1234/v1`), `WISE_YOLO_API_MODEL` (default `gemma-4-e2b-it-qat@q4_k_xl`), `WISE_YOLO_API_KEY` (optional) | Gemma-4-E2B |
-| `afm` | `fm respond --schema` | `WISE_YOLO_AFM_EXECUTABLE` (default `fm`) | `system` (macOS 27 + Apple Silicon) |
+| `api` | HTTP Chat Completions | `TINY_BOUNCER_API_BASE_URL` (required, e.g. `http://127.0.0.1:1234/v1`), `TINY_BOUNCER_API_MODEL` (default `gemma-4-e2b-it-qat@q4_k_xl`), `TINY_BOUNCER_API_KEY` (optional) | Gemma-4-E2B |
+| `afm` | `fm respond --schema` | `TINY_BOUNCER_AFM_EXECUTABLE` (default `fm`) | `system` (macOS 27 + Apple Silicon) |
 
-Shared transport knobs: `WISE_YOLO_CHAT_CONCURRENCY` (default 1),
-`WISE_YOLO_CHAT_TIMEOUT_MS` (default 30 000).
+Shared transport knobs: `TINY_BOUNCER_CHAT_CONCURRENCY` (default 1),
+`TINY_BOUNCER_CHAT_TIMEOUT_MS` (default 30 000).
 
 **Requirements**:
 
@@ -687,11 +687,11 @@ Shared transport knobs: `WISE_YOLO_CHAT_CONCURRENCY` (default 1),
   factory reports a configuration error (`doctor --backend <id>` still reports it, and
   selection is unaffected). The plugin's setup check is also scoped to its selected
   backend (`doctor --backend <id>`, id from the plugin's `backend` option or
-  `WISE_YOLO_BACKEND`, default `jev`), so an unused optional backend cannot warn.
+  `TINY_BOUNCER_BACKEND`, default `jev`), so an unused optional backend cannot warn.
 - Tests **must not require network, `fm`, or Apple Intelligence and must run on Linux
   CI**: an `httptest` server emulates OpenAI responses (well-formed, malformed, HTTP
   error, timeout, `reasoning_content` fallback, usage); a `testdata/fakefm.sh` shim
-  selected by `WISE_YOLO_AFM_EXECUTABLE` emits canned JSON; table-driven mapping/route
+  selected by `TINY_BOUNCER_AFM_EXECUTABLE` emits canned JSON; table-driven mapping/route
   tests.
 
 **Acceptance criteria**:
@@ -722,8 +722,8 @@ verdict-disagreement breakdown — so a decision model (Jev) and the API/AFM bac
 can be judged against each other, not only against their own history.
 
 **Files**: `internal/eval/compare.go`, `internal/eval/compare_test.go`,
-`internal/eval/report.go` (`LoadReport`), `cmd/wiseyolo/eval.go`,
-`cmd/wiseyolo/eval_test.go`, `README.md`, `doc/architecture.md` §7, `doc/plan.md` row.
+`internal/eval/report.go` (`LoadReport`), `cmd/tinybouncer/eval.go`,
+`cmd/tinybouncer/eval_test.go`, `README.md`, `doc/architecture.md` §7, `doc/plan.md` row.
 
 **Requirements**:
 
@@ -768,9 +768,9 @@ model (`fm available` exit 0).
 
 1. Confirm health (`doctor --backend api`, `doctor --backend afm`); record the resolved
    model facts.
-2. `wiseyolo eval --backend api` and `wiseyolo eval --backend afm` over the corpus
+2. `tinybouncer eval --backend api` and `tinybouncer eval --backend afm` over the corpus
    (cache off): record metrics, latency percentiles, refusals/errors, and every FN/FP.
-3. `wiseyolo eval --backend api --against jev` and `--backend afm --against jev` (and
+3. `tinybouncer eval --backend api --against jev` and `--backend afm --against jev` (and
    `--against mock`): record the agreement matrix, the disagreement list, and the
    safety-critical summary — in particular whether a backend auto-allows anything Jev
    flags.
@@ -817,12 +817,12 @@ plugin that moves to `opencode/plugins/tiny-bouncer/`.
 
 **Acceptance criteria**:
 
-- [ ] No occurrence of the former name remains in any tracked file (including this plan
+- [x] No occurrence of the former name remains in any tracked file (including this plan
       and the historical reports)
-- [ ] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
-- [ ] `make ci` green
-- [ ] plugin `npm run typecheck` and `npm run test` green
-- [ ] checkout directory and `origin` remote updated
+- [x] `go build ./... && go test ./... && go vet ./...` pass; `gofmt -l .` empty
+- [x] `make ci` green
+- [x] plugin `npm run typecheck` and `npm run test` green
+- [x] checkout directory and `origin` remote updated
 
 **Out of scope**: behaviour changes; backwards-compatible aliases for the former names.
 

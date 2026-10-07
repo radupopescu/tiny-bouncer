@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/eval"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/eval"
 )
 
 // This file holds the subprocess contract tests for the eval subcommand

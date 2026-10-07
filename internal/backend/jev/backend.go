@@ -19,8 +19,8 @@ import (
 	"strconv"
 	"sync"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 // ModelListPath is the endpoint path used by HealthCheck.
@@ -34,7 +34,7 @@ func init() {
 const DefaultConcurrency = 5
 
 // concurrencyEnv overrides the fan-out width.
-const concurrencyEnv = "WISE_YOLO_CONCURRENCY"
+const concurrencyEnv = "TINY_BOUNCER_CONCURRENCY"
 
 // factory builds the backend from backend.Config.Values falling back to the
 // process environment (the same precedence everywhere). A missing API key is
@@ -72,7 +72,7 @@ func factory(cfg backend.Config) (backend.Backend, error) {
 type jevBackend struct {
 	client     *Client
 	thresholds Thresholds
-	// concurrency bounds the fan-out width, default 5 (WISE_YOLO_CONCURRENCY).
+	// concurrency bounds the fan-out width, default 5 (TINY_BOUNCER_CONCURRENCY).
 	concurrency int
 
 	// resolvedModel is the resolved model name from the most recent
@@ -100,7 +100,7 @@ func (b *jevBackend) Name() string { return "jev" }
 
 // Info returns the identity facts recorded in meta. After any response has
 // resolved, Model is the response's model field; before then, the configured
-// model (WISE_YOLO_JEV_MODEL, default jev-latest).
+// model (TINY_BOUNCER_JEV_MODEL, default jev-latest).
 func (b *jevBackend) Info() backend.Info {
 	model := b.client.cfg.Model
 	b.mu.Lock()
@@ -137,7 +137,7 @@ func (b *jevBackend) HealthCheck(ctx context.Context) error {
 		return nil
 	}
 	if res.StatusCode == http.StatusUnauthorized {
-		return fmt.Errorf("jev: health check failed (401): check WISE_YOLO_JEV_API_KEY or TYPESAFE_API_KEY")
+		return fmt.Errorf("jev: health check failed (401): check TINY_BOUNCER_JEV_API_KEY or TYPESAFE_API_KEY")
 	}
 	return fmt.Errorf("jev: health check failed (status %d): endpoint returned an error", res.StatusCode)
 }

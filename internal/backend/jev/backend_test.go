@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 // valuesFor wraps backend.Config-style values as the factory's lookup.
@@ -119,7 +119,7 @@ func batteryServer(t *testing.T, statusFor func(n int) int) (*httptest.Server, *
 
 // newBackend builds a backend against srv with the given extra values.
 func newBackend(t *testing.T, srv *httptest.Server, extra map[string]string) (backend.Backend, error) {
-	values := map[string]string{"WISE_YOLO_JEV_API_KEY": "test-key", "WISE_YOLO_JEV_BASE_URL": srv.URL}
+	values := map[string]string{"TINY_BOUNCER_JEV_API_KEY": "test-key", "TINY_BOUNCER_JEV_BASE_URL": srv.URL}
 	for k, v := range extra {
 		values[k] = v
 	}
@@ -285,15 +285,15 @@ func TestClassifyBoundedConcurrency(t *testing.T) {
 		t.Errorf("max in-flight = %d; the concurrency width was not actually exercised", got)
 	}
 	if got := atomic.LoadInt32(maxInFlight); got > 5 {
-		t.Errorf("max in-flight = %d, want ≤ 5 (default WISE_YOLO_CONCURRENCY)", got)
+		t.Errorf("max in-flight = %d, want ≤ 5 (default TINY_BOUNCER_CONCURRENCY)", got)
 	}
 }
 
-// TestClassifyConcurrencyOverride: WISE_YOLO_CONCURRENCY=2 through the
+// TestClassifyConcurrencyOverride: TINY_BOUNCER_CONCURRENCY=2 through the
 // factory客家 configuration keeps in-flight requests ≤ 2.
 func TestClassifyConcurrencyOverride(t *testing.T) {
 	srv, hits, maxInFlight, _ := batteryServer(t, nil)
-	b, err := newBackend(t, srv, map[string]string{"WISE_YOLO_CONCURRENCY": "2"})
+	b, err := newBackend(t, srv, map[string]string{"TINY_BOUNCER_CONCURRENCY": "2"})
 	if err != nil {
 		t.Fatalf("factory: %v", err)
 	}
@@ -316,8 +316,8 @@ func TestClassifyConcurrencyOverride(t *testing.T) {
 func TestClassifyInvalidConcurrencyOverride(t *testing.T) {
 	srv, _, _, _ := batteryServer(t, nil)
 	for _, bad := range []string{"0", "banana"} {
-		if _, err := newBackend(t, srv, map[string]string{"WISE_YOLO_CONCURRENCY": bad}); err == nil {
-			t.Errorf("factory with %s = %q: nil error, want ConfigError", "WISE_YOLO_CONCURRENCY", bad)
+		if _, err := newBackend(t, srv, map[string]string{"TINY_BOUNCER_CONCURRENCY": bad}); err == nil {
+			t.Errorf("factory with %s = %q: nil error, want ConfigError", "TINY_BOUNCER_CONCURRENCY", bad)
 		}
 	}
 }
@@ -413,7 +413,7 @@ func TestHealthCheckHint401(t *testing.T) {
 	if err == nil {
 		t.Fatal("HealthCheck = nil, want error")
 	}
-	for _, hint := range []string{"WISE_YOLO_JEV_API_KEY", "TYPESAFE_API_KEY"} {
+	for _, hint := range []string{"TINY_BOUNCER_JEV_API_KEY", "TYPESAFE_API_KEY"} {
 		if !strings.Contains(fmt.Sprint(err), hint) {
 			t.Errorf("error %v lacks the hint %q", err, hint)
 		}
@@ -441,11 +441,11 @@ func TestThresholdOverrideThroughFactory(t *testing.T) {
 		t.Fatalf("pinned 0.82 hazard routes %s under defaults, want ask", v.Effect)
 	}
 	// Same pinned probability under a lowered deny gate → deny.
-	b2, err := newBackend(t, srv, map[string]string{"WISE_YOLO_JEV_THRESHOLDS": "deny_hazard=0.50"})
+	b2, err := newBackend(t, srv, map[string]string{"TINY_BOUNCER_JEV_THRESHOLDS": "deny_hazard=0.50"})
 	if err != nil {
 		t.Fatalf("factory with override: %v", err)
 	}
-	t2, err := LoadThresholds(valuesFor(map[string]string{"WISE_YOLO_JEV_THRESHOLDS": "deny_hazard=0.50"}))
+	t2, err := LoadThresholds(valuesFor(map[string]string{"TINY_BOUNCER_JEV_THRESHOLDS": "deny_hazard=0.50"}))
 	if err != nil {
 		t.Fatalf("override load: %v", err)
 	}
@@ -463,18 +463,18 @@ func TestFactoryConfigErrors(t *testing.T) {
 	// Clear ambient credentials so the missing-key case stays meaningful on
 	// machines (or CI jobs) with a live Typesafe key in the environment.
 	t.Setenv("TYPESAFE_API_KEY", "")
-	t.Setenv("WISE_YOLO_JEV_API_KEY", "")
+	t.Setenv("TINY_BOUNCER_JEV_API_KEY", "")
 	srv, _, _, _ := batteryServer(t, nil)
-	base := map[string]string{"WISE_YOLO_JEV_BASE_URL": srv.URL}
+	base := map[string]string{"TINY_BOUNCER_JEV_BASE_URL": srv.URL}
 	tests := []struct {
 		name   string
 		values map[string]string
 		want   string
 	}{
 		{"missing key", base, "no API key"},
-		{"unknown key", merge(base, map[string]string{"WISE_YOLO_JEV_API_KEY": "test-key", "WISE_YOLO_JEV_THRESHOLDS": "deny_hazrd=0.5"}), "unknown key"},
-		{"malformed float", merge(base, map[string]string{"WISE_YOLO_JEV_API_KEY": "test-key", "WISE_YOLO_JEV_THRESHOLDS": "deny_hazard=high"}), "not a number"},
-		{"out of range", merge(base, map[string]string{"WISE_YOLO_JEV_API_KEY": "test-key", "WISE_YOLO_JEV_THRESHOLDS": "deny_hazard=1.5"}), "out of range"},
+		{"unknown key", merge(base, map[string]string{"TINY_BOUNCER_JEV_API_KEY": "test-key", "TINY_BOUNCER_JEV_THRESHOLDS": "deny_hazrd=0.5"}), "unknown key"},
+		{"malformed float", merge(base, map[string]string{"TINY_BOUNCER_JEV_API_KEY": "test-key", "TINY_BOUNCER_JEV_THRESHOLDS": "deny_hazard=high"}), "not a number"},
+		{"out of range", merge(base, map[string]string{"TINY_BOUNCER_JEV_API_KEY": "test-key", "TINY_BOUNCER_JEV_THRESHOLDS": "deny_hazard=1.5"}), "out of range"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

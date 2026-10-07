@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 // apiBackend builds the api backend pointed at a test server.

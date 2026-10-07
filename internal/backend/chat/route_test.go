@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/core"
 )
 
 func TestMapAnswerTable(t *testing.T) {

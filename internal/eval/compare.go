@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/core"
 )
 
 // Provenance identifies one report inside a comparison.

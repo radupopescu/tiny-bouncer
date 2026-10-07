@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"wiseyolo/internal/backend"
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/backend"
+	"tinybouncer/internal/core"
 )
 
 // afmBackend builds the afm backend against a given executable via the

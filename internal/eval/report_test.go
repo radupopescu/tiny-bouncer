@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"wiseyolo/internal/backend"
+	"tinybouncer/internal/backend"
 )
 
 // TestReportWriteAndAppendHistory drives the report file naming, the

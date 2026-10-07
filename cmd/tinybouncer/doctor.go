@@ -17,7 +17,7 @@ import (
 	"io"
 	"time"
 
-	"wiseyolo/internal/backend"
+	"tinybouncer/internal/backend"
 )
 
 // doctorTimeout bounds each HealthCheck so doctor cannot block indefinitely
@@ -38,7 +38,7 @@ type doctorRow struct {
 
 // runDoctor implements the doctor subcommand.
 //
-//	wiseyolo doctor [--backend <name>] [--json]
+//	tinybouncer doctor [--backend <name>] [--json]
 //
 // --json is accepted for forward compatibility (architecture §8: the plugin
 // runs `doctor --json`); the output is always JSON, so the flag changes
@@ -56,17 +56,17 @@ func runDoctor(args []string, _ io.Reader, stdout, stderr io.Writer) int {
 	names := backend.Names()
 	if *backendName != "" {
 		if _, ok := backend.Lookup(*backendName); !ok {
-			fmt.Fprintf(stderr, "wiseyolo doctor: unknown backend %q (available: %s)\n",
+			fmt.Fprintf(stderr, "tinybouncer doctor: unknown backend %q (available: %s)\n",
 				*backendName, availableBackends())
 			return 1
 		}
 		names = []string{*backendName}
 	}
 	if *jsonFlag {
-		fmt.Fprintln(stderr, "wiseyolo doctor: output is always JSON; --json accepted for compatibility")
+		fmt.Fprintln(stderr, "tinybouncer doctor: output is always JSON; --json accepted for compatibility")
 	}
 
-	// Environment note: WISE_YOLO_JEV_* variables come from the process
+	// Environment note: TINY_BOUNCER_JEV_* variables come from the process
 	// environment; a stale base URL here would hit the wrong endpoint, so
 	// surface what is being used when it deviates from the default.
 	allOK := true
@@ -78,7 +78,7 @@ func runDoctor(args []string, _ io.Reader, stdout, stderr io.Writer) int {
 			row.Error = "not registered"
 			allOK = false
 			writeDoctorRow(stdout, stderr, row)
-			fmt.Fprintf(stderr, "wiseyolo doctor: %s: not registered\n", name)
+			fmt.Fprintf(stderr, "tinybouncer doctor: %s: not registered\n", name)
 			continue
 		}
 		b, err := factory(backend.Config{})
@@ -94,7 +94,7 @@ func runDoctor(args []string, _ io.Reader, stdout, stderr io.Writer) int {
 			row.Error = err.Error()
 			allOK = false
 			writeDoctorRow(stdout, stderr, row)
-			fmt.Fprintf(stderr, "wiseyolo doctor: %s: unhealthy: %v\n", name, err)
+			fmt.Fprintf(stderr, "tinybouncer doctor: %s: unhealthy: %v\n", name, err)
 			continue
 		}
 		info := b.Info()
@@ -105,18 +105,18 @@ func runDoctor(args []string, _ io.Reader, stdout, stderr io.Writer) int {
 		cancel()
 		if err == nil {
 			row.OK = true
-			fmt.Fprintf(stderr, "wiseyolo doctor: %s: ok (model %s, policy %s, thresholds %s)\n",
+			fmt.Fprintf(stderr, "tinybouncer doctor: %s: ok (model %s, policy %s, thresholds %s)\n",
 				name, row.Model, row.PolicyVersion, row.ThresholdsVersion)
 		} else {
 			row.Error = err.Error()
 			allOK = false
-			fmt.Fprintf(stderr, "wiseyolo doctor: %s: unhealthy: %v\n", name, err)
+			fmt.Fprintf(stderr, "tinybouncer doctor: %s: unhealthy: %v\n", name, err)
 		}
 		writeDoctorRow(stdout, stderr, row)
 	}
 
 	if !allOK {
-		fmt.Fprintln(stderr, "wiseyolo doctor: one or more backends are unhealthy")
+		fmt.Fprintln(stderr, "tinybouncer doctor: one or more backends are unhealthy")
 		return 1
 	}
 	return 0
@@ -129,6 +129,6 @@ func writeDoctorRow(stdout, stderr io.Writer, row doctorRow) {
 		fmt.Fprintln(stdout, string(b))
 	} else {
 		// Encoding a struct of plain strings cannot fail; belt and braces.
-		fmt.Fprintf(stderr, "wiseyolo doctor: internal error encoding health JSON: %v\n", err)
+		fmt.Fprintf(stderr, "tinybouncer doctor: internal error encoding health JSON: %v\n", err)
 	}
 }

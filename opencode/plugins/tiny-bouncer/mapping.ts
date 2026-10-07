@@ -1,4 +1,4 @@
-// Mapping of the wiseyolo `check` output contract onto an OpenCode permission
+// Mapping of the tinybouncer `check` output contract onto an OpenCode permission
 // decision (architecture §8). Pure logic only: deterministic, no I/O beyond
 // the crypto hash. Everything here is unit-testable without spawning the
 // classifier.
@@ -14,7 +14,7 @@ export type Effect = "allow" | "ask" | "deny";
  * registration in `opencode.jsonc`. All fields optional; see defaultOptions.
  */
 export interface Options {
-	/** Binary path (absolute or on PATH). Default "wiseyolo". */
+	/** Binary path (absolute or on PATH). Default "tinybouncer". */
 	executable?: string;
 	/** Plugin-side kill timer in ms; must exceed the classifier's own budget. Default 20000. */
 	timeoutMs?: number;
@@ -28,9 +28,9 @@ export interface Options {
 	/** Log decisions (command hashes, never raw text) to the plugin log. Default false. */
 	logDecisions?: boolean;
 	/**
-	 * Backend id passed to `wiseyolo check` as `--backend`. When unset the
+	 * Backend id passed to `tinybouncer check` as `--backend`. When unset the
 	 * plugin passes no flag at all: the backend is resolved by the CLI's own
-	 * environment convention (`WISE_YOLO_BACKEND`, default `jev`).
+	 * environment convention (`TINY_BOUNCER_BACKEND`, default `jev`).
 	 */
 	backend?: string;
 }
@@ -39,7 +39,7 @@ export interface Options {
 export const defaultOptions: Required<
 	Pick<Options, "executable" | "timeoutMs" | "onError" | "grantFromAsk" | "logDecisions">
 > = {
-	executable: "wiseyolo",
+	executable: "tinybouncer",
 	timeoutMs: 20_000,
 	onError: "ask",
 	grantFromAsk: false,
@@ -173,7 +173,7 @@ export function mapEffect(
  * Human-readable message naming the outage, for the `onError` path.
  */
 export function outageMessage(what: string, detail: string): string {
-	return `wiseyolo: classifier unavailable (${what}): ${detail} — falling back to the configured effect`;
+	return `tinybouncer: classifier unavailable (${what}): ${detail} — falling back to the configured effect`;
 }
 
 /**

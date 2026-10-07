@@ -1,11 +1,11 @@
-# AGENTS.md — Way of working (Wise Yolo)
+# AGENTS.md — Way of working (Tiny Bouncer)
 
 Instructions for any coding agent working in this repository: subagent task sessions,
 separate OpenCode sessions, and interactive assistants alike.
 
 ## What this project is
 
-Wise Yolo screens shell commands requested by LLM agents before they run, by calling an
+Tiny Bouncer screens shell commands requested by LLM agents before they run, by calling an
 external judgment backend (TypeSafe's Jev by default), and integrates with OpenCode V2
 through a `permission.evaluate` plugin hook. It fails safe to `ask`.
 
@@ -33,8 +33,8 @@ The full protocol lives in `doc/plan.md` §1; the essentials:
 
 ## Hard project conventions
 
-- **Go only where Go is expected** (`wiseyolo` binary, `internal/…`); TypeScript only in
-  `opencode/plugins/wise-yolo/`. No other languages.
+- **Go only where Go is expected** (`tinybouncer` binary, `internal/…`); TypeScript only in
+  `opencode/plugins/tiny-bouncer/`. No other languages.
 - **Zero third-party dependencies.** Go: stdlib only, pinned `go 1.23` in `go.mod`
   (toolchain 1.27.x is fine to compile with). Plugin: `@opencode/plugin` types and the
   Node stdlib only.

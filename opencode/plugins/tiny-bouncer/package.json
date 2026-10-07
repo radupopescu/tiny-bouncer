@@ -1,7 +1,7 @@
 {
-  "name": "wise-yolo-plugin",
+  "name": "tiny-bouncer-plugin",
   "version": "0.1.0",
-  "description": "Wise Yolo — OpenCode V2 plugin screening shell commands with the wiseyolo classifier",
+  "description": "Tiny Bouncer — OpenCode V2 plugin screening shell commands with the tinybouncer classifier",
   "type": "module",
   "private": true,
   "license": "Unlicense",

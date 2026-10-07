@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"wiseyolo/internal/core"
+	"tinybouncer/internal/core"
 )
 
 // ThresholdsVersion is the route's thresholds version. It joins the cache key
@@ -18,7 +18,7 @@ import (
 const ThresholdsVersion = "tv2"
 
 // thresholdsEnv is the sweep override: a comma-separated list of k=v pairs.
-const thresholdsEnv = "WISE_YOLO_JEV_THRESHOLDS"
+const thresholdsEnv = "TINY_BOUNCER_JEV_THRESHOLDS"
 
 // Thresholds holds the four route gates.
 //
