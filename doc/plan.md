@@ -99,7 +99,7 @@ Decider checkpoint.
 | T17 | Rename project to tiny-bouncer | T16 | — | done (T17-rename) | e44cf4b |
 | T18 | Extract the System One judgment into a shared package | T17 | — | done (T18-systemone) | 0498f11 |
 | T19 | `decider` backend (Strands Decider 2B) | T18 | — | done (T19-decider) | d72669d |
-| T20 | Live decider calibration + comparison row **(needs the decider server)** | T19 | — | done (T20-live) | — |
+| T20 | Live decider calibration + comparison row **(needs the decider server)** | T19 | — | done (T20-live) | 312bffa |
 
 ---
 
