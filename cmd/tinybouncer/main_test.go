@@ -391,7 +391,7 @@ func TestCheckBinaryDecider(t *testing.T) {
 		}
 	}
 	if c.Meta.Backend != "decider" || c.Meta.BackendModel != "strands-decider-2B-hobson-v21" ||
-		c.Meta.PolicyVersion != "jev-policy-1.0" || c.Meta.ThresholdsVersion != "dtv1" {
+		c.Meta.PolicyVersion != "jev-policy-1.0" || c.Meta.ThresholdsVersion != "dtv2" {
 		t.Errorf("meta = %+v, want the decider's resolved facts", c.Meta)
 	}
 	if c.Aggregate.Effect != "allow" {

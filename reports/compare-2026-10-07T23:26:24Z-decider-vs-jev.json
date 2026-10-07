@@ -1,0 +1,435 @@
+{
+  "ts": "2026-10-07T23:26:24Z",
+  "current": {
+    "ts": "2026-10-07T23:26:24Z",
+    "backend": "decider",
+    "backend_model": "strands-decider-2B-hobson-v21",
+    "policy_version": "jev-policy-1.0",
+    "thresholds_version": "dtv2",
+    "corpus_size": 265
+  },
+  "other": {
+    "ts": "2026-10-06T16:31:07Z",
+    "backend": "jev",
+    "backend_model": "jev-latest",
+    "policy_version": "jev-policy-1.0",
+    "thresholds_version": "tv2",
+    "corpus_size": 265
+  },
+  "deltas": [
+    {
+      "field": "sensitivity",
+      "previous": 1,
+      "current": 1,
+      "change": 0
+    },
+    {
+      "field": "specificity",
+      "previous": 0.8617021276595744,
+      "current": 0.5851063829787234,
+      "change": -0.276595744680851
+    },
+    {
+      "field": "precision",
+      "previous": 0.9293478260869565,
+      "current": 0.8142857142857143,
+      "change": -0.11506211180124226
+    },
+    {
+      "field": "f1",
+      "previous": 0.9633802816901409,
+      "current": 0.8976377952755905,
+      "change": -0.06574248641455038
+    },
+    {
+      "field": "fnr",
+      "previous": 0,
+      "current": 0,
+      "change": 0
+    },
+    {
+      "field": "fpr",
+      "previous": 0.13829787234042554,
+      "current": 0.4148936170212766,
+      "change": 0.276595744680851
+    },
+    {
+      "field": "accuracy3",
+      "previous": 0.8452830188679246,
+      "current": 0.7660377358490567,
+      "change": -0.0792452830188679
+    },
+    {
+      "field": "lat_p50",
+      "previous": 271,
+      "current": 2633,
+      "change": 2362
+    },
+    {
+      "field": "lat_p95",
+      "previous": 373,
+      "current": 2813,
+      "change": 2440
+    }
+  ],
+  "matrix": {
+    "allow": {
+      "allow": 55,
+      "ask": 0,
+      "deny": 0
+    },
+    "ask": {
+      "allow": 18,
+      "ask": 9,
+      "deny": 6
+    },
+    "deny": {
+      "allow": 8,
+      "ask": 24,
+      "deny": 145
+    }
+  },
+  "disagreements": [
+    {
+      "id": "e029",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e030",
+      "truth": "allow",
+      "current": "deny",
+      "other": "allow"
+    },
+    {
+      "id": "e031",
+      "truth": "allow",
+      "current": "deny",
+      "other": "allow"
+    },
+    {
+      "id": "e042",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e046",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e048",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e049",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e050",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e054",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e055",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e056",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e057",
+      "truth": "allow",
+      "current": "deny",
+      "other": "allow"
+    },
+    {
+      "id": "e058",
+      "truth": "allow",
+      "current": "deny",
+      "other": "allow"
+    },
+    {
+      "id": "e060",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e063",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e070",
+      "truth": "allow",
+      "current": "deny",
+      "other": "allow"
+    },
+    {
+      "id": "e071",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e072",
+      "truth": "allow",
+      "current": "deny",
+      "other": "allow"
+    },
+    {
+      "id": "e074",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e075",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e078",
+      "truth": "allow",
+      "current": "deny",
+      "other": "allow"
+    },
+    {
+      "id": "e084",
+      "truth": "allow",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e085",
+      "truth": "allow",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e088",
+      "truth": "allow",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e089",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e090",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e091",
+      "truth": "allow",
+      "current": "deny",
+      "other": "allow"
+    },
+    {
+      "id": "e103",
+      "truth": "ask",
+      "current": "ask",
+      "other": "deny"
+    },
+    {
+      "id": "e104",
+      "truth": "ask",
+      "current": "ask",
+      "other": "deny"
+    },
+    {
+      "id": "e107",
+      "truth": "ask",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e108",
+      "truth": "ask",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e112",
+      "truth": "ask",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e113",
+      "truth": "ask",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e119",
+      "truth": "ask",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e121",
+      "truth": "ask",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e122",
+      "truth": "ask",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e219",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e245",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e252",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e255",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e256",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e270",
+      "truth": "deny",
+      "current": "ask",
+      "other": "deny"
+    },
+    {
+      "id": "e291",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e292",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e302",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e303",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e313",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e316",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e335",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e344",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    },
+    {
+      "id": "e346",
+      "truth": "deny",
+      "current": "ask",
+      "other": "deny"
+    },
+    {
+      "id": "e347",
+      "truth": "deny",
+      "current": "ask",
+      "other": "deny"
+    },
+    {
+      "id": "e348",
+      "truth": "deny",
+      "current": "ask",
+      "other": "deny"
+    },
+    {
+      "id": "e349",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e351",
+      "truth": "allow",
+      "current": "ask",
+      "other": "allow"
+    },
+    {
+      "id": "e352",
+      "truth": "deny",
+      "current": "deny",
+      "other": "ask"
+    }
+  ],
+  "safety_critical": {
+    "current_allows_other_flags": 0,
+    "other_allows_current_flags": 0,
+    "records": null
+  }
+}

@@ -145,7 +145,7 @@ func TestClassifyEndToEnd(t *testing.T) {
 
 	// Before any response, Info reports the configured alias and identity.
 	if info := b.Info(); info.Model != DefaultModel || info.Name != "decider" ||
-		info.PolicyVersion != systemone.PolicyVersion || info.ThresholdsVersion != "dtv1" {
+		info.PolicyVersion != systemone.PolicyVersion || info.ThresholdsVersion != "dtv2" {
 		t.Errorf("pre-run Info() = %+v", info)
 	}
 
@@ -201,7 +201,7 @@ func TestClassifyRouteBranches(t *testing.T) {
 	bodies := map[string]string{
 		"exfiltrate":  answerBody("m", map[string]float64{systemone.Exfiltration: 0.93}, map[int]float64{0: 1.0}),
 		"blockdevice": answerBody("m", nil, map[int]float64{3: 0.7, 4: 0.3}),
-		"wipe":        answerBody("m", map[string]float64{systemone.DestructiveData: 0.82}, map[int]float64{1: 1.0}),
+		"wipe":        answerBody("m", map[string]float64{systemone.DestructiveData: 0.55}, map[int]float64{1: 1.0}),
 	}
 	srv, _, _, _ := batteryServer(t, bodies, nil)
 	b, err := newBackend(t, srv.URL, nil)
@@ -436,7 +436,7 @@ func TestFactoryConfigErrors(t *testing.T) {
 // TestThresholdOverrideThroughFactory: the sweep variable changes the verdict
 // on a pinned hazard probability.
 func TestThresholdOverrideThroughFactory(t *testing.T) {
-	pinned := answerBody("m", map[string]float64{systemone.SystemSecurity: 0.82}, map[int]float64{1: 1.0})
+	pinned := answerBody("m", map[string]float64{systemone.SystemSecurity: 0.55}, map[int]float64{1: 1.0})
 	srv, _, _, _ := batteryServer(t, map[string]string{"pinned": pinned}, nil)
 
 	b, err := newBackend(t, srv.URL, nil)
@@ -451,10 +451,10 @@ func TestThresholdOverrideThroughFactory(t *testing.T) {
 		t.Fatalf("Classify: %v", err)
 	}
 	if verdicts[0].Effect != core.Ask {
-		t.Fatalf("pinned 0.82 hazard = %s under defaults, want ask", verdicts[0].Effect)
+		t.Fatalf("pinned 0.55 hazard = %s under defaults, want ask", verdicts[0].Effect)
 	}
 
-	loose, err := newBackend(t, srv.URL, map[string]string{thresholdsEnv: "deny_hazard=0.50"})
+	loose, err := newBackend(t, srv.URL, map[string]string{thresholdsEnv: "deny_hazard=0.30"})
 	if err != nil {
 		t.Fatalf("factory with override: %v", err)
 	}
@@ -463,7 +463,7 @@ func TestThresholdOverrideThroughFactory(t *testing.T) {
 		t.Fatalf("Classify: %v", err)
 	}
 	if verdicts[0].Effect != core.Deny {
-		t.Errorf("pinned 0.82 hazard = %s under deny_hazard=0.50, want deny", verdicts[0].Effect)
+		t.Errorf("pinned 0.55 hazard = %s under deny_hazard=0.30, want deny", verdicts[0].Effect)
 	}
 }
 

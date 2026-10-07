@@ -355,15 +355,14 @@ default stays `jev`. Because no per-backend gates file exists,
 `eval --backend api|afm --compare` falls back to the shared Jev gates and reports
 FAILED by design — a record of the comparison-only decision, not a regression.
 
-The full comparison — Jev, `api`, `afm` and the mock floor, with per-record error ids
-and the live compare reports — is written up in
-`reports/summary-backends-2026-10-06.md`.
+The full comparison — Jev, `decider`, `api`, `afm` and the mock floor, with per-record
+error ids and the live compare reports — is written up in
+`reports/summary-backends-2026-10-07.md` (the 2026-10-06 file remains the T16 record).
 
 The `decider` backend (§5quinquies) joined as a fourth judgment backend in task T19,
-asking the identical battery and routing it identically, so its row isolates the model;
-its thresholds are an uncalibrated placeholder (`dtv1`) until task T20 sweeps them. Like
-Jev it implements `backend.Sweepable`, so `eval --backend decider --sweep` uses the same
-code path.
+asking the identical battery and routing it identically, so its row isolates the model; its
+operating point was calibrated in task T20 (see §5quinquies). Like Jev it implements
+`backend.Sweepable`, so `eval --backend decider --sweep` uses the same code path.
 
 Privacy: AFM runs on-device and the API endpoint is normally local, so commands
 need not leave the machine.
@@ -398,16 +397,32 @@ unlikely to hold `FNR = 0` over the dangerous records (measured in task T20).
   (`TINY_BOUNCER_DECIDER_MODEL`); the server resolves the checkpoint it serves, and the
   response `model` field is what reports record.
 
-### Route (thresholds `dtv1`; constants in code, sweepable)
+### Route (thresholds `dtv2`; constants in code, sweepable)
 
-The gates start from Jev's calibrated `tv2` values — the battery and the route arithmetic
-are identical — but the decider's probabilities are not Jev's, so these values are an
-**uncalibrated placeholder** until task T20 sweeps them with
-`TINY_BOUNCER_DECIDER_THRESHOLDS` (`eval --backend decider --sweep …`). T20 commits the
-calibrated values and bumps the version if they move. Because the mapping is shared, a
-verdict's `categories` are the §5bis hazard ids, directly comparable with Jev's
-per-record error lists. The backend implements `backend.Sweepable`, the same opt-in Jev
-uses, so the sweep path needs no special case.
+The gates are calibrated for this checkpoint (task T20, 2026-10-07): `deny_hazard 0.65`,
+`deny_severity 1.80`, `ask_hazard 0.45`, `ask_severity 1.60`.
+
+Jev's `tv2` values do **not** transfer: the decider's severity distribution is compressed
+(safe commands score a median expected severity of 1.51, so `tv2`'s `ask_severity 1.40`
+flags every safe command), and carrying them over leaves `FNR 0.0175` — three dangerous
+commands auto-allowed. Calibration therefore *lowered* `deny_severity` to 1.80 and *raised*
+`ask_severity` to 1.60. Method: a four-variant live sweep, then a grid search over the raw
+battery answers recorded for all 265 commands (the routing is a pure function of max hazard
+and expected severity), under a rule fixed before the runs — hard `FNR = 0` first, then
+minimum FPR, then maximum three-way accuracy. The chosen point was verified live: the
+canonical run reproduced the offline confusion matrix exactly.
+
+Measured at `dtv2` over the 265-record corpus: TP 171 / FN 0 / FP 39 / TN 55, sensitivity
+1.000, specificity 0.585, precision 0.814, F1 0.898, FNR 0.000, FPR 0.415, accuracy3 0.766,
+p50 2 634 ms / p95 3 129 ms, 265 requests / 246 617 input tokens. The minimum FPR over the
+whole grid at `FNR = 0` is 0.415: on this corpus the decider is safe but not selective, and
+its `ask` class is nearly unused (6 of 22 ask truths). It auto-allows nothing Jev flags, and
+Jev auto-allows nothing it flags (56 disagreements, all Jev-`allow` → decider-`ask`/`deny`).
+It is **comparison-only**: no `reports/gates-decider.json` is committed, so
+`eval --backend decider --compare` applies the shared Jev gates and reports FAILED by
+design. Because the mapping is shared, a verdict's `categories` are the §5bis hazard ids,
+directly comparable with Jev's per-record error lists. The backend implements
+`backend.Sweepable`, the same opt-in Jev uses, so the sweep path needs no special case.
 
 ## 6. Configuration summary
 
@@ -514,9 +529,11 @@ Regression gates are resolved per backend whenever `--compare` or `--against` is
 use: the default is `reports/gates-<backend>.json`, falling back to the shared
 `reports/gates.json` (which remains the Jev gates). An explicit `--gates` file always
 wins. This lets the API/AFM backends carry their own operating points without changing
-the Jev gate file. For `api` and `afm`, which are comparison-only (T16: neither
-reaches `FNR = 0`), no per-backend gates file exists, so `eval --backend api|afm
---compare` applies the shared Jev gates and reports FAILED by design.
+the Jev gate file. For `api` and `afm` (comparison-only since T16: neither reaches
+`FNR = 0`) and for `decider` (comparison-only since T20: `FNR = 0` is reachable but only
+at FPR 0.415, with three-way accuracy 0.766 and p95 ≈ 2.9 s), no per-backend gates file
+exists, so `eval --backend api|afm|decider --compare` applies the shared Jev gates and
+reports FAILED by design.
 
 ## 8. OpenCode plugin (`opencode/plugins/tiny-bouncer`)
 

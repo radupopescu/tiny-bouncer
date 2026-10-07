@@ -292,8 +292,8 @@ func TestDoctorDecider(t *testing.T) {
 		t.Fatalf("rows = %+v; want exactly one ok decider row", rows)
 	}
 	if rows[0].Model != "strands-decider-2B-hobson-v21" || rows[0].PolicyVersion != "jev-policy-1.0" ||
-		rows[0].ThresholdsVersion != "dtv1" {
-		t.Errorf("decider facts = %+v; want the health model, the shared policy and dtv1", rows[0])
+		rows[0].ThresholdsVersion != "dtv2" {
+		t.Errorf("decider facts = %+v; want the health model, the shared policy and dtv2", rows[0])
 	}
 
 	// Unconfigured: omitted from the default report, reported explicitly.

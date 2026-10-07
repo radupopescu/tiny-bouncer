@@ -6,9 +6,9 @@ verdict into a permission decision in the [OpenCode V2](https://opencode.ai/v2/d
 harness: allow the command, block it, or fall back to the normal interactive prompt.
 
 > **Status: v0.1.0.** All planned tasks are complete (see `doc/plan.md`); the live Jev
-> operating point is calibrated and gated (`FNR = 0` hard), and the optional `api`/`afm`
-> chat backends are measured and documented as **comparison-only** (see below). Manual
-> user smoke test pending under way of working notes.
+> operating point is calibrated and gated (`FNR = 0` hard), and the optional `decider`,
+> `api` and `afm` backends are measured and documented as **comparison-only** (see below).
+> Manual user smoke test pending under way of working notes.
 
 Design principles:
 
@@ -95,8 +95,8 @@ bin/tinybouncer check --backend decider <<< '{"commands":["git status","rm -rf /
 ```
 
 The `decider` server is an external Python process installed out of tree; the
-repository stays Go and TypeScript. Its thresholds are an uncalibrated placeholder
-(`dtv1`, seeded from Jev's `tv2`) until the calibration task runs.
+repository stays Go and TypeScript. Its thresholds are calibrated for the v21 checkpoint
+(`dtv2`; see the comparison below).
 
 Select one for the plugin by setting `TINY_BOUNCER_BACKEND` (e.g. `api`) or the plugin's
 `backend` option.
@@ -194,20 +194,30 @@ Jev auto-allows none that either flags. `afm` timed out on 3 of 265 requests at 
 budget and failed safe to `ask`. Cost is zero marginal for both; `api` reports token
 usage (265 req · 79,115 in · 28,936 out), `afm` none. Because no per-backend gates file
 exists, `eval --backend api|afm --compare` applies the shared Jev gates and reports
-FAILED by design — the comparison-only decision, not a regression.
+FAILED by design — the comparison-only decision, not a regression. `decider` is
+comparison-only for the same reason (see below).
 
-The committed cross-backend comparison (Jev, `api`, `afm` and the mock floor) is
-summarised in [`reports/summary-backends-2026-10-06.md`](reports/summary-backends-2026-10-06.md).
+The committed cross-backend comparison (Jev, `decider`, `api`, `afm` and the mock floor)
+is summarised in [`reports/summary-backends-2026-10-07.md`](reports/summary-backends-2026-10-07.md);
+the earlier [`reports/summary-backends-2026-10-06.md`](reports/summary-backends-2026-10-06.md)
+remains the T16 record for `api`/`afm`.
 
-### Decider (wired, not yet measured)
+### Decider (live, 2026-10-07)
 
-The `decider` backend screens commands with a locally served Strands Decider 2B
-checkpoint, asking the identical hazard battery and severity question as Jev and routing
-the answers with the same arithmetic (`doc/architecture.md` §5quinquies). It is
-**comparison-only pending measurement**: its thresholds are seeded from Jev's `tv2` and
-remain uncalibrated until the live calibration task sweeps them, so no claim about its
-accuracy or safety is made here. Its verdict categories are the same hazard ids Jev
-reports, so the comparison will be per-record comparable.
+The `decider` backend screens commands with a locally served Strands Decider 2B checkpoint
+(`StrandsAgents/strands-decider-2B-hobson-v21`), asking the identical hazard battery and
+severity question as Jev and routing the answers with the same arithmetic
+(`doc/architecture.md` §5quinquies). Calibrated on the 265-record corpus (`dtv2`):
+
+| backend | model | TP/FN/FP/TN | FNR | FPR | accuracy3 | p50/p95 |
+|---|---|---|---|---|---|---|
+| `decider` | `strands-decider-2B-hobson-v21` | 171/0/39/55 | 0.000 | 0.415 | 0.766 | 2.63 / 3.13 s |
+
+The decider is safe on this corpus (`FNR = 0`, and it auto-allows nothing Jev flags) but it
+is **comparison-only**: it interrupts 41.5 % of safe commands against Jev's 13.8 %, is less
+accurate three-way, and is roughly eight times slower. No gates file is committed, so
+`eval --backend decider --compare` applies the shared Jev gates and reports FAILED by
+design.
 
 ## Backends
 
@@ -224,7 +234,8 @@ endpoint (`TINY_BOUNCER_API_BASE_URL`, `TINY_BOUNCER_DECIDER_BASE_URL`) or CLI (
 not configured, so an unused optional backend cannot fail an otherwise-healthy run;
 `doctor --backend <id>` still reports it. `api` and `afm` are **comparison-only** (see the
 calibration section above): neither meets the hard `FNR = 0` safety gate, so the default
-backend stays `jev`. `decider` is comparison-only pending measurement.
+backend stays `jev`. `decider` is comparison-only as well: calibrated to `FNR = 0` on the
+corpus, but at FPR 0.415 and p95 ≈ 3 s.
 
 Adding a backend means one package under `internal/backend/<name>` implementing the
 three obligations in `doc/architecture.md` §5.2 — no changes to the CLI contract, the

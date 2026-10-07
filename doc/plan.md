@@ -99,7 +99,7 @@ Decider checkpoint.
 | T17 | Rename project to tiny-bouncer | T16 | — | done (T17-rename) | e44cf4b |
 | T18 | Extract the System One judgment into a shared package | T17 | — | done (T18-systemone) | 0498f11 |
 | T19 | `decider` backend (Strands Decider 2B) | T18 | — | done (T19-decider) | d72669d |
-| T20 | Live decider calibration + comparison row **(needs the decider server)** | T19 | — | in-progress (T20-live) | — |
+| T20 | Live decider calibration + comparison row **(needs the decider server)** | T19 | — | done (T20-live) | — |
 
 ---
 
@@ -982,6 +982,17 @@ ignored), `reports/eval-<ts>-decider-*.json`,
 FPR, then maximise accuracy3, treating `lat_p95 ≤ 1200 ms` as an informational target rather
 than a gate. Record the rule and its outcome together.
 
+**Outcome** (2026-10-07): the four-variant sweep showed Jev's `tv2` does not transfer
+(carried over unchanged it leaves `FNR 0.0175` — the decider's severity distribution is
+compressed, so `ask_severity 1.40` flags every safe command), and the variants that reach
+`FNR = 0` sit at `FPR 1.0`. A grid search over the raw battery answers recorded for all 265
+commands then found the region the sweep had not sampled; the chosen point is
+`deny_hazard 0.65 / deny_severity 1.80 / ask_hazard 0.45 / ask_severity 1.60` (`dtv2`),
+verified live at TP 171 / FN 0 / FP 39 / TN 55, FNR 0, FPR 0.415, accuracy3 0.766,
+p50 2 634 ms / p95 3 129 ms. Minimum FPR over the whole grid at `FNR = 0` is 0.415: the
+decider is safe but not selective, and it is **comparison-only** — no gates file is
+committed. Full record: `reports/summary-backends-2026-10-07.md`.
+
 **Requirements**:
 
 1. Spike before measuring: load the checkpoint, run one `ask`, `curl /health`, and send the
@@ -1006,15 +1017,15 @@ than a gate. Record the rule and its outcome together.
 
 **Acceptance criteria**:
 
-- [ ] Spike transcript and `uv pip freeze` under `scratch/decider/`
-- [ ] `doctor --backend decider` healthy against the real server
-- [ ] Sweep results recorded; chosen thresholds committed with their version
-- [ ] Decider eval report and history line committed (synthetic corpus only)
-- [ ] `--against jev|api|afm|mock` compare reports committed
-- [ ] New dated summary carries the decider row, the `tv2` control and the error composition
-- [ ] README and architecture state the calibrated operating point and the comparison-only
+- [x] Spike transcript and `uv pip freeze` under `scratch/decider/`
+- [x] `doctor --backend decider` healthy against the real server
+- [x] Sweep results recorded; chosen thresholds committed with their version
+- [x] Decider eval report and history line committed (synthetic corpus only)
+- [x] `--against jev|api|afm|mock` compare reports committed
+- [x] New dated summary carries the decider row, the `tv2` control and the error composition
+- [x] README and architecture state the calibrated operating point and the comparison-only
       or gated verdict
-- [ ] `make ci` green; queue row done
+- [x] `make ci` green; queue row done
 
 **Out of scope**: other models and other checkpoints; any change to the battery text; the
 production default backend (stays `jev` unless a backend meets a justified gate).
