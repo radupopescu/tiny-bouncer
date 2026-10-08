@@ -5,10 +5,11 @@ command to an external judgment backend — TypeSafe's **Jev** by default — an
 verdict into a permission decision in the [OpenCode V2](https://opencode.ai/v2/docs/)
 harness: allow the command, block it, or fall back to the normal interactive prompt.
 
-> **Status: v0.1.0.** All planned tasks are complete (see `doc/plan.md`); the live Jev
-> operating point is calibrated and gated (`FNR = 0` hard), and the optional `decider`,
-> `api` and `afm` backends are measured and documented as **comparison-only** (see below).
-> Manual user smoke test pending under way of working notes.
+> **Status: v0.1.0.** All planned work is complete (`doc/plan.md`). Jev is the production
+> default and the only backend that meets the hard `FNR = 0` safety gate; the optional
+> `decider`, `api` and `afm` backends are measured and documented as **comparison-only**.
+> The measured results are in [`doc/findings.md`](doc/findings.md); the manual OpenCode
+> smoke test has not been run yet (see the checklist below).
 
 Design principles:
 
@@ -75,7 +76,8 @@ point at `bin/tinybouncer` explicitly:
 ### Other backends
 
 Instead of Jev, screen with a local chat model served by LM Studio (or any
-OpenAI-compatible endpoint), or with Apple Foundation Models on-device:
+OpenAI-compatible endpoint), with Apple Foundation Models on-device, or with a locally
+served Strands Decider checkpoint (the same System One battery as Jev):
 
 ```sh
 # OpenAI-compatible endpoint (LM Studio serving Gemma-4-E2B)
@@ -86,31 +88,30 @@ bin/tinybouncer check --backend api <<< '{"commands":["git status","rm -rf /"]}'
 # macOS 27+ with Apple Intelligence enabled (the `fm` CLI)
 bin/tinybouncer check --backend afm <<< '{"commands":["git status","rm -rf /"]}'
 
-# Strands Decider 2B served locally (the same System One battery as Jev)
-uv venv --python 3.14 ~/.venvs/decider && uv pip install --python ~/.venvs/decider/bin/python strands-decider
-uv run --python ~/.venvs/decider/bin/python strands-decider serve \
-  StrandsAgents/strands-decider-2B-hobson-v21 --device mps --port 8000
+# Strands Decider 2B served locally (see doc/findings.md §8 for the full setup)
 export TINY_BOUNCER_DECIDER_BASE_URL=http://127.0.0.1:8000
 bin/tinybouncer check --backend decider <<< '{"commands":["git status","rm -rf /"]}'
 ```
 
-The `decider` server is an external Python process installed out of tree; the
-repository stays Go and TypeScript. Its thresholds are calibrated for the v21 checkpoint
-(`dtv2`; see the comparison below). The released `strands-decider` 0.1.0 CLI exposes no
-`--strict-window` flag, so window truncation is excluded by measurement instead: every
-recorded battery request fits the checkpoint's 4 096-token window (see
-[`reports/summary-backends-2026-10-07.md`](reports/summary-backends-2026-10-07.md)).
-
 Select one for the plugin by setting `TINY_BOUNCER_BACKEND` (e.g. `api`) or the plugin's
-`backend` option.
+`backend` option. The `decider` server is an external Python process installed out of
+tree; the repository stays Go and TypeScript.
 
 ## CLI reference
 
 ```sh
 tinybouncer check [--backend jev|mock|api|afm|decider] [--cache|--no-cache] < commands.json
-tinybouncer eval  --backend jev|api|afm|decider [--compare] [--against <backend>] [--sweep]   # labelled-corpus evaluation
+tinybouncer eval  --backend jev|api|afm|decider [--compare] [--against <backend>] [--sweep]
 tinybouncer doctor [--backend jev|mock|api|afm|decider]                 # credentials/endpoint health
 ```
+
+`eval` runs the labelled corpus through a backend, writes
+`reports/eval-<timestamp>-<backend>-<model>.json`, and appends one line to
+`reports/history.jsonl`. `--compare` prints deltas against the previous same-backend run
+and applies the regression gates; `--against <backend>` additionally compares the run with
+another backend's most recent report and writes `reports/compare-<ts>-<a>-vs-<b>.json`;
+`--sweep` evaluates threshold variants (backends that implement the sweep hook: `jev` and
+`decider`). Caching is off during `eval`.
 
 ### `check` output contract
 
@@ -146,102 +147,25 @@ The plugin runs `doctor --backend <selected>` asynchronously at load (best effor
 scoped to the backend it will use) and logs the healthy model/threshold facts, or a
 single warning that screening will fall back to `ask`.
 
-### Observed operating point (live, 2026-10-03)
-
-Measured during calibration on the full 265-record corpus, model resolved as
-`jev-1.13.0` (requested via alias `jev-latest`), thresholds `tv2`:
-
-- **FNR = 0** (hard gate: no dangerous command auto-allowed), TP 171 / FN 0 / FP 13 /
-  TN 81; FPR ≈ 0.138, three-way accuracy ≈ 0.84.
-- Latency p50 ≈ 269 ms, **p95 ≈ 450 ms** per request.
-- Cost ≈ **972 input tokens per screening request** — roughly **$0.0108 per full
-  265-request eval run**, i.e. ~$0.000041 per real permission screening (pricing is
-  per input token; output tokens free). Usage is recorded in eval reports.
-
-### Cross-backend comparison (`eval --against`)
-
-`eval --backend <a> --against <b>` runs the corpus through `<a>`, then compares that run
-with the most recent stored report for `<b>` (chosen by report timestamp). It prints
-metric deltas (current − other), a 3×3 verdict-agreement matrix (rows `<a>`, columns
-`<b>`), the disagreeing records (`id`, truth, both verdicts), and a **safety-critical
-summary** — commands one side auto-allowed (`allow`) while the other side flagged them
-and the truth is `ask`/`deny`. The comparison is written as
-`reports/compare-<ts>-<a>-vs-<b>.json`. If no report exists for `<b>`, the command
-prints a note and exits 0 (nothing to compare yet).
-
-```sh
-# compare the API backend with the recorded Jev run
-bin/tinybouncer eval --backend api --against jev
-```
-
-Regression gates are per backend when `--compare` or `--against` is in use: the default
-gates file is `reports/gates-<backend>.json`, falling back to the shared
-`reports/gates.json` (the Jev gates). An explicit `--gates <file>` still wins.
-
-### API/AFM calibration (live, 2026-10-06)
-
-Both chat backends were measured on the full 265-record corpus (cache off: `api` on LM
-Studio serving Gemma-4-E2B, `afm` on-device through `fm`). They are **comparison-only**:
-neither reaches the hard `FNR = 0` gate, so the production default stays `jev` and no
-per-backend gates file is committed.
-
-| backend | model | TP/FN/FP/TN | FNR | FPR | accuracy3 | p50/p95 |
-|---|---|---|---|---|---|---|
-| `api` | `gemma-4-e2b-it-qat@q4_k_xl` | 131/40/10/84 | 0.234 | 0.106 | 0.608 | 1.60 / 2.17 s |
-| `afm` | `system` | 168/3/64/30 | 0.018 | 0.681 | 0.668 | 2.14 / 2.57 s |
-
-`api` auto-allowed 40 dangerous/ask-worthy commands and `afm` 3; both interrupted many
-more safe commands than Jev (FPR 0.106 and 0.681). In the committed `--against jev`
-comparisons each chat backend auto-allows commands Jev flags (`api` 40, `afm` 3), while
-Jev auto-allows none that either flags. `afm` timed out on 3 of 265 requests at its 30 s
-budget and failed safe to `ask`. Cost is zero marginal for both; `api` reports token
-usage (265 req · 79,115 in · 28,936 out), `afm` none. Because no per-backend gates file
-exists, `eval --backend api|afm --compare` applies the shared Jev gates and reports
-FAILED by design — the comparison-only decision, not a regression. `decider` is
-comparison-only for the same reason (see below).
-
-The committed cross-backend comparison (Jev, `decider`, `api`, `afm` and the mock floor)
-is summarised in [`reports/summary-backends-2026-10-07.md`](reports/summary-backends-2026-10-07.md);
-the earlier [`reports/summary-backends-2026-10-06.md`](reports/summary-backends-2026-10-06.md)
-remains the T16 record for `api`/`afm`.
-
-### Decider (live, 2026-10-07)
-
-The `decider` backend screens commands with a locally served Strands Decider 2B checkpoint
-(`StrandsAgents/strands-decider-2B-hobson-v21`), asking the identical hazard battery and
-severity question as Jev and routing the answers with the same arithmetic
-(`doc/architecture.md` §5quinquies). Calibrated on the 265-record corpus (`dtv2`):
-
-| backend | model | TP/FN/FP/TN | FNR | FPR | accuracy3 | p50/p95 |
-|---|---|---|---|---|---|---|
-| `decider` | `strands-decider-2B-hobson-v21` | 171/0/39/55 | 0.000 | 0.415 | 0.766 | 2.63 / 3.13 s |
-
-The decider is safe on this corpus (`FNR = 0`, and it auto-allows nothing Jev flags) but it
-is **comparison-only**: it interrupts 41.5 % of safe commands against Jev's 13.8 %, is less
-accurate three-way, and is roughly eight times slower. No gates file is committed, so
-`eval --backend decider --compare` applies the shared Jev gates and reports FAILED by
-design.
-
 ## Backends
 
-| Backend | Network | Purpose |
-|---|---|---|
-| `jev` (default) | TypeSafe System One API | Real judgments: hazard probabilities + severity, thresholds in code |
-| `api` | OpenAI-compatible endpoint (e.g. LM Studio) | Chat model: one schema-constrained completion per command (Gemma-4-E2B for now) |
-| `afm` | on-device (Apple Foundation Models) | Chat model through the `fm` CLI; macOS 27 + Apple Silicon |
-| `decider` | local Strands Decider server (e.g. `127.0.0.1:8000`) | Decision model: the same System One battery as Jev, judged locally |
-| `mock` | none | Deterministic rules for offline tests and the eval floor |
+| Backend | Network | Purpose | Status |
+|---|---|---|---|
+| `jev` (default) | TypeSafe System One API | Hazard probabilities + severity, thresholds in code | production default, gates pass |
+| `decider` | local Strands Decider server | The same System One battery as Jev, judged locally | comparison-only |
+| `api` | OpenAI-compatible endpoint (LM Studio, Ollama) | One schema-constrained chat completion per command | comparison-only |
+| `afm` | on-device (Apple Foundation Models) | Chat model through the `fm` CLI; macOS 27 + Apple Silicon | comparison-only |
+| `mock` | none | Deterministic rules for offline tests and the eval floor | test only |
 
 `api`, `afm` and `decider` are **optional**: `doctor`'s default report omits one whose
 endpoint (`TINY_BOUNCER_API_BASE_URL`, `TINY_BOUNCER_DECIDER_BASE_URL`) or CLI (`fm`) is
 not configured, so an unused optional backend cannot fail an otherwise-healthy run;
-`doctor --backend <id>` still reports it. `api` and `afm` are **comparison-only** (see the
-calibration section above): neither meets the hard `FNR = 0` safety gate, so the default
-backend stays `jev`. `decider` is comparison-only as well: calibrated to `FNR = 0` on the
-corpus, but at FPR 0.415 and p95 ≈ 3 s.
+`doctor --backend <id>` still reports it.
 
-Adding a backend means one package under `internal/backend/<name>` implementing the
-three obligations in `doc/architecture.md` §5.2 — no changes to the CLI contract, the
+Measured operating points, error composition and the cross-backend comparison are in
+[`doc/findings.md`](doc/findings.md). Adding a backend means one package under
+`internal/backend/<name>` implementing the three obligations in
+[`doc/architecture.md`](doc/architecture.md) §5.2 — no changes to the CLI contract, the
 eval harness, or the plugin.
 
 ## Plugin options
@@ -346,29 +270,29 @@ confirm each step:
   you should see interactive prompts; `tinybouncer doctor` tells you what's wrong.
 - **Cache weirdness after tuning** — keys include backend, model, policy and thresholds
   versions; tuning thresholds invalidates old entries automatically.
+- **An optional backend is missing from `doctor`** — it is not configured (endpoint or
+  CLI absent). `doctor --backend <id>` reports it explicitly.
 
-## For developers
+## Documentation
 
-- `doc/architecture.md` — behaviour authority (contracts, battery, thresholds, gates).
-- `doc/plan.md` — task queue + session protocol (task sessions implement one task,
-  verify acceptance criteria, commit).
-- `AGENTS.md` — how agents are expected to work in this repo.
-- `make ci` — the full offline verification target (`fmt`, `vet`, `build`, `test`,
-  `eval-mock`, `doctor --backend mock`); `.github/workflows/ci.yml` runs the same set
-  on every push (ubuntu, Go 1.25, no secrets required).
-- `make eval-live` — opt-in live run against Jev (`eval --backend jev --compare`); it
-  applies the regression gates from `reports/gates.json` (`FNR = 0` hard, FPR ≤ 0.15,
-  accuracy3 ≥ 0.80, p95 ≤ 1200 ms). With no key set it prints a warning and skips
-  safely. Every run appends one row to `reports/history.jsonl` — the committed
-  performance record (kept intentionally, including the calibration trail); reports
-  contain synthetic corpus commands only.
-- `make eval-api` / `make eval-afm` — opt-in live runs against the chat backends
-  (`eval --backend api|afm --compare`). `eval-api` needs `TINY_BOUNCER_API_BASE_URL`
-  (LM Studio serving Gemma-4-E2B by default); `eval-afm` needs a ready on-device
-  model (`fm available`). Either prints a warning and skips safely when unavailable.
-  Both backends are comparison-only (no per-backend gates file), so these targets
-  apply the shared Jev gates and report FAILED by design.
-- `make eval-decider` — opt-in live run against a locally served Strands Decider
-  checkpoint (`eval --backend decider --compare`); needs
-  `TINY_BOUNCER_DECIDER_BASE_URL` and skips safely without it.
-- Plugin: `cd opencode/plugins/tiny-bouncer && npm run typecheck && npm run test`.
+- [`doc/architecture.md`](doc/architecture.md) — specification: contracts, battery,
+  thresholds, plugin semantics, design decisions.
+- [`doc/findings.md`](doc/findings.md) — measured behaviour: operating points,
+  calibration, cross-backend comparison, error composition, reproduction commands.
+- [`doc/plan.md`](doc/plan.md) — roadmap: session protocol, task queue, future work.
+- [`AGENTS.md`](AGENTS.md) — how agents work in this repository.
+
+## Development
+
+```sh
+make ci                 # fmt, vet, build, test, eval-mock, doctor --backend mock (offline)
+make eval-live          # opt-in live Jev run (eval --backend jev --compare) + gates
+make eval-api           # opt-in live chat-backend runs; skip safely when unconfigured
+make eval-afm
+make eval-decider       # opt-in live decider run (needs TINY_BOUNCER_DECIDER_BASE_URL)
+cd opencode/plugins/tiny-bouncer && npm run typecheck && npm run test
+```
+
+`make ci` is the offline gate and is what `.github/workflows/ci.yml` runs on every push
+(ubuntu, no secrets). The live targets need their backend available and print a warning
+and skip when it is not; each appends one row to `reports/history.jsonl`.

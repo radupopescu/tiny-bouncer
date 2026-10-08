@@ -13,16 +13,17 @@ through a `permission.evaluate` plugin hook. It fails safe to `ask`.
 
 | Document | Role |
 |---|---|
-| `doc/architecture.md` | **Behaviour authority.** All contracts, policies, thresholds. If code and this doc disagree, the doc wins or a task explicitly amends the doc. |
-| `doc/plan.md` | Task queue and session protocol. §4 is the single source of truth for status. |
+| `doc/architecture.md` | **Behaviour authority.** Specification and design decisions: contracts, policies, thresholds, plugin semantics. If code and this doc disagree, the doc wins or a task explicitly amends the doc. |
+| `doc/findings.md` | Measured behaviour: operating points, calibration, cross-backend comparison, error composition, reproduction commands. Numbers live here, not in the architecture or the roadmap. |
+| `doc/plan.md` | Roadmap: session protocol (§1) and task queue (§4). §4 is the single source of truth for status. |
 | `AGENTS.md` | This file. How agents are expected to work here. |
 
 ## Session protocol (summary)
 
 The full protocol lives in `doc/plan.md` §1; the essentials:
 
-1. Read `doc/architecture.md` and the current §4 queue before doing anything. Trust the
-   repo state, not memory from other sessions.
+1. Read `doc/architecture.md`, `doc/findings.md` and the current §4 queue before doing
+   anything. Trust the repo state, not memory from other sessions.
 2. Claim the first task whose status is `pending` and whose dependencies are all `done`:
    set your queue row to `in-progress`, commit, implement, mark `done`, commit.
 3. **One task per session.** Never start a second task. Only work on files listed in
@@ -56,7 +57,11 @@ The full protocol lives in `doc/plan.md` §1; the essentials:
 ## When doing work outside the task queue
 
 Small fixes and docs updates (like README or AGENTS.md maintenance) do not need a full
- task: keep them in their own commit, name what they are
+task: keep them in their own commit, name what they are
  (`docs: …`, `make: …`), and keep the §4 queue untouched unless the change is itself a
  task completion. Structural or behavioural changes, however, belong to a task (or a
  new task row) — do not implement them ad hoc.
+
+**Where a fact belongs.** A contract, interface, threshold or design decision goes in
+`doc/architecture.md`. A measurement goes in `doc/findings.md`. The roadmap carries neither.
+State each fact in one place and link to it from the others.
