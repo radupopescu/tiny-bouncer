@@ -86,6 +86,14 @@ Three findings worth recording:
    live: the canonical run reproduced the offline confusion matrix exactly
    (171/0/39/55), so the offline replication is sound.
 
+**Truncation was excluded by measurement, not by a flag.** The released `strands-decider`
+0.1.0 exposes no `--strict-window` option — neither on the `serve` CLI nor in
+`server.create_app` — so a state longer than the checkpoint window would be silently
+shortened rather than refused. Instead: all 265 recorded battery requests validate against
+the server's `SystemOneRequest` schema, and their rendered prompts run 922 / 930 / 951
+(min / median / max) tokens against the checkpoint's 4 096-token window, none over it
+(`scratch/decider/promptlen.py`, `scratch/decider/truncation.txt`).
+
 ## Agreement with Jev and the mock floor
 
 `eval --against` aligns the two reports by record id. "Safety-critical" counts records one
@@ -136,7 +144,9 @@ design — the comparison-only decision, not a regression. The production defaul
 
 Measurement artefacts (environment, `uv pip freeze`, the recorded requests, the
 prompt-length check, the sweep specification, the preregistered rule, the grid search and
-the chosen point) are under `scratch/decider/`; `scratch/` is ignored by git.
+the chosen point) are under `scratch/decider/`; `scratch/` is ignored by git, and the
+recorded request/answer pairs are deliberately **not** committed because they contain raw
+command text, which this project never persists on disk (architecture §9).
 
 Note on `reports/history.jsonl`: the sweep's lines carry the backend's declared version at
 the time (`dtv1`); the variant values are not part of the history schema and live in the

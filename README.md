@@ -89,14 +89,17 @@ bin/tinybouncer check --backend afm <<< '{"commands":["git status","rm -rf /"]}'
 # Strands Decider 2B served locally (the same System One battery as Jev)
 uv venv --python 3.14 ~/.venvs/decider && uv pip install --python ~/.venvs/decider/bin/python strands-decider
 uv run --python ~/.venvs/decider/bin/python strands-decider serve \
-  StrandsAgents/strands-decider-2B-hobson-v21 --device mps --port 8000 --strict-window
+  StrandsAgents/strands-decider-2B-hobson-v21 --device mps --port 8000
 export TINY_BOUNCER_DECIDER_BASE_URL=http://127.0.0.1:8000
 bin/tinybouncer check --backend decider <<< '{"commands":["git status","rm -rf /"]}'
 ```
 
 The `decider` server is an external Python process installed out of tree; the
 repository stays Go and TypeScript. Its thresholds are calibrated for the v21 checkpoint
-(`dtv2`; see the comparison below).
+(`dtv2`; see the comparison below). The released `strands-decider` 0.1.0 CLI exposes no
+`--strict-window` flag, so window truncation is excluded by measurement instead: every
+recorded battery request fits the checkpoint's 4 096-token window (see
+[`reports/summary-backends-2026-10-07.md`](reports/summary-backends-2026-10-07.md)).
 
 Select one for the plugin by setting `TINY_BOUNCER_BACKEND` (e.g. `api`) or the plugin's
 `backend` option.

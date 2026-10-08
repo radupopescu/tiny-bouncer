@@ -999,6 +999,11 @@ committed. Full record: `reports/summary-backends-2026-10-07.md`.
    real battery for one command through `curl`; confirm the answer shapes, the routed
    verdict, MPS operation and a sane per-request latency; record the resolved versions.
 2. Serve with `--strict-window` so a silently truncated state cannot distort the record.
+   **Deviation:** the released `strands-decider` 0.1.0 exposes no such flag (neither the
+   CLI nor `create_app`), so truncation was excluded by measurement instead — every one of
+   the 265 recorded battery requests validates against the server's `SystemOneRequest`
+   schema, and the longest prompt renders to 951 tokens against the 4 096-token window
+   (`scratch/decider/truncation.txt`, `scratch/decider/promptlen.py`).
 3. `doctor --backend decider` healthy against the real server; record the resolved model,
    device and calibration temperature.
 4. `eval --backend decider --sweep "<variants>"` over the corpus (cache off); apply the

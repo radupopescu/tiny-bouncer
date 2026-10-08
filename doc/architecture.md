@@ -380,8 +380,12 @@ unlikely to hold `FNR = 0` over the dangerous records (measured in task T20).
 
 - The server is an external process and is **not vendored into this repository**:
   `uv` installs the Python package out of tree, and
-  `strands-decider serve <checkpoint> --device mps --strict-window --port 8000` serves
-  it. No Python code is added here.
+  `strands-decider serve <checkpoint> --device mps --port 8000` serves it. No Python code
+  is added here. The released `strands-decider` 0.1.0 exposes no `--strict-window` flag
+  (neither on the CLI nor in `create_app`), so a state that would be truncated is not
+  refused; truncation was instead excluded by measurement in T20 — all 265 recorded
+  battery requests validate against the server's `SystemOneRequest` schema and the longest
+  renders to 951 tokens against the checkpoint's 4 096-token window.
 - `POST {base}/v1/systemone` (no authentication) and `GET /health` for the health check.
   The canonical endpoint is `http://127.0.0.1:8000`, but the base URL is **required**
   configuration (`TINY_BOUNCER_DECIDER_BASE_URL`), so an unconfigured backend is omitted
